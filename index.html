@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-1855">
+<html lang="en" data-build="loews-20261108-1905">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -179,6 +179,30 @@
   .cbtn.on { background:#fff; color:#0a1230; border-color:#fff; }
   #toast { position:absolute; left:50%; bottom:128px; transform:translateX(-50%) translateY(8px); z-index:46; background:rgba(8,12,26,.9); color:#fff; border:1px solid rgba(255,255,255,.25); border-radius:6px; padding:9px 14px; font-size:13px; font-weight:600; letter-spacing:.3px; opacity:0; pointer-events:none; transition:opacity .3s ease, transform .3s ease; max-width:88%; text-align:center; }
   #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  #monbar { position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:96; background:rgba(8,18,38,.93); color:#fff; border:1px solid rgba(255,255,255,.35); border-radius:999px; padding:7px 8px 7px 14px; font-size:12.5px; font-weight:700; display:flex; gap:10px; align-items:center; max-width:94%; }
+  #monbar.hidden { display:none; }
+  #monOff { background:#c8102e; color:#fff; border:0; border-radius:999px; padding:5px 12px; font-weight:800; cursor:pointer; }
+  #monscreen { position:fixed; inset:0; background:#000; z-index:120; }
+  #monvid { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#000; }
+  #monui { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(8,18,38,.93); border:1px solid rgba(255,255,255,.25); border-radius:14px; padding:22px; text-align:center; color:#fff; width:min(86vw,340px); }
+  #monui .mont { font-size:17px; font-weight:900; letter-spacing:2px; }
+  #monstatus { color:#b9c6e2; font-size:13.5px; margin:10px 0 14px; }
+  #monrow { display:flex; gap:8px; justify-content:center; }
+  #moncode { text-transform:uppercase; font-size:22px; font-weight:800; letter-spacing:6px; text-align:center; width:132px; padding:9px 4px; border-radius:8px; border:0; }
+  #monjoin { background:#c8102e; color:#fff; border:0; border-radius:8px; padding:10px 18px; font-weight:800; cursor:pointer; }
+  #monexit { margin-top:14px; background:transparent; color:#b9c6e2; border:1px solid rgba(255,255,255,.35); border-radius:999px; padding:7px 14px; font-weight:700; cursor:pointer; }
+  #monlive { position:absolute; top:12px; left:12px; background:#c8102e; color:#fff; font-weight:800; font-size:13px; letter-spacing:1px; padding:5px 10px; border-radius:5px; z-index:3; }
+  #monbug { position:absolute; right:12px; bottom:12px; color:rgba(255,255,255,.9); font-weight:800; letter-spacing:2px; font-size:13px; text-shadow:0 1px 4px rgba(0,0,0,.8); z-index:3; }
+  body.tent #stage { left:50%; right:0; }
+  body.tentflip #stage { left:0; right:50%; }
+  #tentpane { position:fixed; top:0; bottom:0; left:0; width:50%; background:#000; z-index:55; display:none; }
+  body.tent #tentpane { display:block; }
+  body.tentflip #tentpane { left:auto; right:0; }
+  #vid2 { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  #tentlive { position:absolute; top:12px; left:12px; background:#c8102e; color:#fff; font-weight:800; font-size:13px; letter-spacing:1px; padding:5px 10px; border-radius:5px; }
+  #tentbug { position:absolute; right:12px; bottom:12px; color:rgba(255,255,255,.9); font-weight:800; letter-spacing:2px; font-size:13px; text-shadow:0 1px 4px rgba(0,0,0,.8); }
+  #tentswap { position:absolute; left:12px; bottom:12px; background:rgba(8,18,38,.82); color:#fff; border:1px solid rgba(255,255,255,.4); border-radius:999px; padding:7px 12px; font-weight:700; font-size:12px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -208,6 +232,8 @@
       <button class="cbtn" id="snap">PHOTO</button>
       <button class="cbtn" id="btnRec">● RECORD</button>
       <button class="cbtn" id="btnIntro" style="font-size:12.5px;letter-spacing:1px;">INTRO</button>
+      <button class="cbtn" id="btnMon" style="font-size:12.5px;letter-spacing:1px;">MONITOR</button>
+      <button class="cbtn" id="btnTent" style="font-size:12.5px;letter-spacing:1px;">TENT</button>
       <button class="cbtn" id="btnFlip" title="Flip camera" style="font-size:12.5px;letter-spacing:1px;">FLIP</button>
       <button class="cbtn hidden" id="btnZoom">1&times;</button>
       <button class="cbtn" id="btnRot" style="font-size:12.5px;letter-spacing:1px;">ROTATE</button>
@@ -218,6 +244,25 @@
       <button class="cbtn" id="btnFb">FB LIVE</button>
     </div>
     </div>
+  </div>
+
+  <div id="monbar" class="hidden"><span id="monbarTxt"></span><button id="monOff">OFF</button></div>
+  <div id="monscreen" class="hidden">
+    <video id="monvid" autoplay playsinline muted></video>
+    <div id="monlive" class="hidden">&#9679; LIVE</div>
+    <div id="monbug"></div>
+    <div id="monui">
+      <div class="mont">&#128250; MONITOR</div>
+      <p id="monstatus">Enter the code shown on the camera phone</p>
+      <div id="monrow"><input id="moncode" maxlength="4" placeholder="CODE" autocomplete="off"><button id="monjoin">JOIN</button></div>
+      <button id="monexit">&#10005; Close</button>
+    </div>
+  </div>
+  <div id="tentpane">
+    <video id="vid2" autoplay playsinline muted></video>
+    <div id="tentlive">&#9679; LIVE</div>
+    <div id="tentbug"></div>
+    <button id="tentswap">&#8646; SWAP SIDE</button>
   </div>
 
   <!-- Edit panel -->
@@ -266,8 +311,9 @@
     <p>Broadcast-quality live graphics, Loews style. Tap GO LIVE for the intro, then your camera goes live on property with the full package — lower third, ticker, timecode and recording.</p>
     <button id="goLive">● GO LIVE</button>
     <button id="goSelf">SELF REPORT</button>
+    <button id="goMonitor" style="display:block;margin:12px auto 0;background:transparent;color:#dbe4ff;border:1.5px solid #33448a;border-radius:4px;padding:11px 22px;font-size:13.5px;font-weight:700;letter-spacing:1.5px;cursor:pointer;">&#128250; MONITOR — SECOND SCREEN</button>
     <p class="selfhint">Cover screen detected — SELF REPORT uses the front camera so you can report on camera.</p>
-    <p style="font-size:12.5px;color:#63749f;">Your camera stays on your phone — nothing is uploaded anywhere.</p>
+    <p style="font-size:12.5px;color:#63749f;">Recordings stay on your phone. MONITOR streams live to a second phone only when you turn it on.</p>
     <p style="font-size:11.5px;color:#45548a;letter-spacing:1px;">PRODUCED BY: JHNL SECURITY TECH</p>
   </div>
 
@@ -473,6 +519,8 @@ async function startCamera(){
     $('vid').srcObject = stream;
     try { applyZoom(); } catch(e) {}
     if (AC) wireMic();
+    if (mon.pc && stream) { try { var mvt = stream.getVideoTracks()[0]; var msnd = mon.pc.getSenders().filter(function(s){ return s.track && s.track.kind === 'video'; })[0]; if (msnd && mvt) msnd.replaceTrack(mvt); } catch(e) {} }
+    tentSync();
     return true;
   }catch(e){
     showErr('Camera blocked. Please allow camera access for this site in your browser settings, then tap GO LIVE again.');
@@ -548,7 +596,7 @@ function applyRot(){
   v.style.transform = 'translate(-50%,-50%) rotate(' + rot + 'deg)';
   try { localStorage.setItem('news-rot', String(rot)); } catch(e) {}
 }
-$('btnRot').onclick = function(){ rot = (rot + 90) % 360; applyRot(); rotSeen = true; $('btnRot').classList.remove('attn'); pokeControls(); };
+$('btnRot').onclick = function(){ rot = (rot + 90) % 360; applyRot(); if (document.body.classList.contains('tent')) tentRot(); rotSeen = true; $('btnRot').classList.remove('attn'); pokeControls(); };
 applyRot();
 /* ---- Camera zoom: image zooms, graphics never move ---- */
 var zoomSteps = [1, 1.5, 2, 3, 5], zoomIdx = 0;
@@ -568,6 +616,145 @@ function applyZoom(){
 $('btnZoom').onclick = function(){ zoomIdx = (zoomIdx + 1) % zoomSteps.length; applyZoom(); pokeControls(); };
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 document.addEventListener('gesturechange', function(e){ e.preventDefault(); });
+/* ---- Two-device monitor + tent mode: dual video screen ---- */
+var SB_URL = 'https://qxqrwusaynfqadjfqswe.supabase.co';
+var SB_KEY = 'sb_publishable_2ba9yzEA89uqXHJ6v-_cQg_AmwwEfFF';
+var mon = { pc: null, code: null, role: null, poll: null, iceQ: [], flushing: false, iceSeen: 0, answerDone: false };
+function monToast(msg){ try { var t = $('toast'); if (!t) return; t.textContent = msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 2800); } catch(e) {} }
+function sbH(){ return { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' }; }
+function monRowId(){ return 'golive-mon-' + mon.code; }
+function sbGetRow(id){
+  return fetch(SB_URL + '/rest/v1/app_records?id=eq.' + encodeURIComponent(id) + '&select=data', { headers: sbH() })
+    .then(function(r){ return r.json(); }).then(function(j){ return (j && j[0] && j[0].data) || null; }).catch(function(){ return null; });
+}
+function sbPutRow(id, data){
+  return fetch(SB_URL + '/rest/v1/app_records?on_conflict=id', { method: 'POST', headers: Object.assign(sbH(), { 'Prefer': 'resolution=merge-duplicates' }), body: JSON.stringify({ id: id, app: 'golive-monitor', data: data }) }).catch(function(){});
+}
+function sbPatchRow(id, data){
+  return fetch(SB_URL + '/rest/v1/app_records?id=eq.' + encodeURIComponent(id), { method: 'PATCH', headers: sbH(), body: JSON.stringify({ data: data }) }).catch(function(){});
+}
+function monFlushIce(){
+  if (!mon.iceQ.length || mon.flushing || !mon.code) return;
+  mon.flushing = true;
+  var q = mon.iceQ.splice(0, mon.iceQ.length);
+  sbGetRow(monRowId()).then(function(row){
+    if (!row) { mon.flushing = false; return; }
+    if (mon.role === 'host') row.iceB = (row.iceB || []).concat(q); else row.iceV = (row.iceV || []).concat(q);
+    row._ts = Date.now();
+    sbPatchRow(monRowId(), row).then(function(){ mon.flushing = false; monFlushIce(); });
+  });
+}
+function monSetBar(txt){ var b = $('monbar'); if (!b) return; $('monbarTxt').textContent = txt; b.classList.remove('hidden'); }
+function monNewPc(){
+  var pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  pc.onicecandidate = function(e){ if (e.candidate) { try { mon.iceQ.push(e.candidate.toJSON()); } catch(err) { mon.iceQ.push({ candidate: e.candidate.candidate, sdpMid: e.candidate.sdpMid, sdpMLineIndex: e.candidate.sdpMLineIndex }); } monFlushIce(); } };
+  pc.onconnectionstatechange = function(){
+    if (pc.connectionState === 'connected') {
+      if (mon.role === 'host') monSetBar('\uD83D\uDCFA Monitor connected \u2713 \u2014 code ' + mon.code);
+      else { monSetStatus('Connected'); $('monlive').classList.remove('hidden'); }
+    }
+    if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      if (mon.role === 'host') monSetBar('\uD83D\uDCFA Monitor link lost \u2014 code ' + mon.code + ' (tap MONITOR to restart)');
+      else monSetStatus('Link lost \u2014 check the camera phone');
+    }
+  };
+  return pc;
+}
+function monApplyIce(row){
+  if (!mon.pc) return;
+  var arr = mon.role === 'host' ? (row.iceV || []) : (row.iceB || []);
+  while (mon.iceSeen < arr.length) { try { mon.pc.addIceCandidate(arr[mon.iceSeen]).catch(function(){}); } catch(e) {} mon.iceSeen++; }
+}
+function monStart(){
+  if (mon.pc) { monStop(); return; }
+  if (!window.RTCPeerConnection) { monToast('This browser cannot do monitor mode'); return; }
+  if (!stream) { monToast('Camera is not running yet'); return; }
+  var chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; mon.code = '';
+  for (var i = 0; i < 4; i++) mon.code += chars.charAt(Math.floor(Math.random() * chars.length));
+  mon.role = 'host'; mon.iceSeen = 0; mon.iceQ = []; mon.answerDone = false;
+  mon.pc = monNewPc();
+  stream.getVideoTracks().forEach(function(t){ mon.pc.addTrack(t, stream); });
+  monSetBar('\uD83D\uDCFA Code ' + mon.code + ' \u2014 on the other phone: open this app, tap MONITOR, enter the code');
+  mon.pc.createOffer().then(function(offer){
+    return mon.pc.setLocalDescription(offer).then(function(){ return offer; });
+  }).then(function(offer){
+    return sbPutRow(monRowId(), { offer: { type: offer.type, sdp: offer.sdp }, answer: null, iceB: [], iceV: [], _ts: Date.now() });
+  }).then(function(){
+    mon.poll = setInterval(function(){
+      sbGetRow(monRowId()).then(function(row){
+        if (!row || !mon.pc) return;
+        if (row.answer && !mon.pc.remoteDescription) mon.pc.setRemoteDescription(row.answer).catch(function(){});
+        if (mon.pc.remoteDescription) monApplyIce(row);
+      });
+    }, 1500);
+  }).catch(function(){ monSetBar('\uD83D\uDCFA Monitor could not start \u2014 check your connection'); });
+}
+function monStop(){
+  if (mon.poll) { clearInterval(mon.poll); mon.poll = null; }
+  if (mon.pc) { try { mon.pc.close(); } catch(e) {} mon.pc = null; }
+  if (mon.code) { try { fetch(SB_URL + '/rest/v1/app_records?id=eq.' + encodeURIComponent(monRowId()), { method: 'DELETE', headers: sbH() }); } catch(e) {} }
+  mon.code = null; mon.role = null;
+  var b = $('monbar'); if (b) b.classList.add('hidden');
+}
+function monSetStatus(txt){ var s = $('monstatus'); if (s) s.textContent = txt; }
+function monJoinShow(){
+  $('start').classList.add('hidden');
+  $('monscreen').classList.remove('hidden');
+  $('monbug').textContent = $('introChan').textContent;
+  var c = new URLSearchParams(location.search).get('monitor');
+  if (c && c.replace(/[^A-Za-z0-9]/g, '').length === 4) { $('moncode').value = c.toUpperCase(); monJoin(); }
+}
+function monJoin(){
+  var code = ($('moncode').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length !== 4) { monSetStatus('Type the 4-letter code from the camera phone'); return; }
+  if (!window.RTCPeerConnection) { monSetStatus('This browser cannot show a monitor feed'); return; }
+  if (mon.pc) { try { mon.pc.close(); } catch(e) {} mon.pc = null; }
+  if (mon.poll) { clearInterval(mon.poll); mon.poll = null; }
+  mon.code = code; mon.role = 'viewer'; mon.iceSeen = 0; mon.iceQ = []; mon.answerDone = false;
+  mon.pc = monNewPc();
+  mon.pc.ontrack = function(e){
+    var v = $('monvid');
+    if (e.streams && e.streams[0]) v.srcObject = e.streams[0];
+    else { var ms = new MediaStream(); ms.addTrack(e.track); v.srcObject = ms; }
+    try { v.play(); } catch(err) {}
+    $('monui').classList.add('hidden'); $('monlive').classList.remove('hidden');
+  };
+  monSetStatus('Looking for the camera phone\u2026');
+  mon.poll = setInterval(function(){
+    sbGetRow(monRowId()).then(function(row){
+      if (!row || !mon.pc) return;
+      if (row.offer && !mon.pc.remoteDescription && !mon.answerDone) {
+        mon.answerDone = true;
+        mon.pc.setRemoteDescription(row.offer).then(function(){ return mon.pc.createAnswer(); }).then(function(ans){
+          return mon.pc.setLocalDescription(ans).then(function(){ return ans; });
+        }).then(function(ans){
+          return sbGetRow(monRowId()).then(function(fresh){ if (fresh) { fresh.answer = { type: ans.type, sdp: ans.sdp }; fresh._ts = Date.now(); return sbPatchRow(monRowId(), fresh); } });
+        }).then(function(){ monSetStatus('Answer sent \u2014 connecting\u2026'); }).catch(function(){ mon.answerDone = false; monSetStatus('Could not answer \u2014 retrying\u2026'); });
+      }
+      if (mon.pc.remoteDescription) monApplyIce(row);
+    });
+  }, 1500);
+}
+$('btnMon').onclick = function(){ if (mon.pc) monStop(); else monStart(); pokeControls(); };
+$('monOff').onclick = function(){ monStop(); };
+$('goMonitor').onclick = function(){ monJoinShow(); };
+$('monjoin').onclick = function(){ monJoin(); };
+$('monexit').onclick = function(){ location.reload(); };
+if (new URLSearchParams(location.search).get('monitor') !== null) monJoinShow();
+
+/* Tent mode: half-fold the Duo \u2014 their side shows them, your side keeps the controls */
+function tentRot(){ var v2 = $('vid2'); if (!v2) return; v2.style.transform = 'rotate(' + rot + 'deg)' + (facing === 'user' ? ' scaleX(-1)' : ''); }
+function tentSync(){
+  var v2 = $('vid2'); if (!v2) return;
+  if (document.body.classList.contains('tent')) {
+    if (stream && v2.srcObject !== stream) { v2.srcObject = stream; try { v2.play(); } catch(e) {} }
+    $('tentbug').textContent = $('introChan').textContent;
+    tentRot();
+  } else if (v2.srcObject) { v2.srcObject = null; }
+}
+$('btnTent').onclick = function(){ document.body.classList.toggle('tent'); tentSync(); pokeControls(); if (document.body.classList.contains('tent')) monToast('Tent mode \u2014 their side shows them; front camera faces them'); };
+$('tentswap').onclick = function(){ document.body.classList.toggle('tentflip'); };
+
 /* Stall watchdog: if the camera feed stops advancing, restart it by itself */
 var lastVT = -1, stallN = 0, lastRestart = 0;
 setInterval(function(){
