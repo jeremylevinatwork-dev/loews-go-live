@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en" data-build="loews-20261108-1812">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Loews Live — Go Live Camera</title>
+<meta name="theme-color" content="#0b1020">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; padding:0; height:100%; background:#0b1020; color:#fff; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; overflow:hidden; }
+  #stage { position:fixed; inset:0; background:#000; }
+  #vid { position:absolute; left:50%; top:50%; width:100vw; height:100dvh; object-fit:cover; background:#111; transform:translate(-50%,-50%); }
+  .hidden { display:none !important; }
+
+  /* ===== Start screen ===== */
+  #start { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:24px; text-align:center; background:#0b1020; z-index:30; overflow-y:auto; }
+  #start .globe { font-size:64px; animation:spin 14s linear infinite; display:inline-block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #start h1 { margin:0; font-size:30px; font-weight:800; letter-spacing:.5px; line-height:1.1; }
+  #start h1 .red { color:#c5a253; }
+  #start p { margin:0; color:#b9c4e4; font-size:15px; max-width:420px; line-height:1.45; }
+  #goLive { margin-top:6px; background:#10254a; color:#fff; border:2px solid #c5a253; border-radius:4px; padding:17px 42px; font-size:20px; font-weight:800; letter-spacing:2px; cursor:pointer; }
+  @keyframes pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.05); } }
+  #goLive:active { transform:scale(.97); }
+  #goSelf { background:transparent; color:#dbe4ff; border:1.5px solid #33448a; border-radius:4px; padding:13px 30px; font-size:15px; font-weight:700; letter-spacing:1.5px; cursor:pointer; }
+  #goSelf:active { transform:scale(.97); }
+  .selfhint { font-size:12.5px; color:#63749f; display:none; max-width:420px; }
+  body.covshape .selfhint { display:block; }
+  body.covshape #goLive { background:#1a2450; }
+  body.covshape #goSelf { background:#10254a; border-color:#c5a253; color:#fff; padding:15px 36px; font-size:17px; }
+  .langrow { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-width:480px; }
+  .langbtn { background:#1a2450; color:#dbe4ff; border:1.5px solid #33448a; border-radius:999px; padding:9px 14px; font-size:14.5px; font-weight:700; cursor:pointer; }
+  .langbtn.on { background:#fff; color:#0a1230; border-color:#fff; }
+  .lbl { font-size:12.5px; font-weight:800; letter-spacing:2px; color:#8fa3d9; text-transform:uppercase; }
+
+  /* ===== Intro sting ===== */
+  #intro { position:absolute; inset:0; z-index:40; background:radial-gradient(ellipse at 50% 42%, #16295e 0%, #0a1430 55%, #05080f 100%); overflow:hidden; display:flex; align-items:center; justify-content:center; }
+  #intro .bars { position:absolute; inset:0; }
+  #intro .bar { position:absolute; left:-20%; width:140%; height:12%; transform:skewY(-4deg); opacity:0; }
+  #intro .b1 { top:6%; background:#c5a253; animation:sweep .5s .05s ease-out forwards; }
+  #intro .b2 { top:26%; background:#f5f7ff; animation:sweep .5s .18s ease-out forwards; }
+  #intro .b3 { top:64%; background:#17307a; animation:sweep .5s .3s ease-out forwards; }
+  #intro .b4 { top:82%; background:#c5a253; animation:sweep .5s .42s ease-out forwards; }
+  @keyframes sweep { from { transform:translateX(-70%) skewY(-4deg); opacity:0; } to { transform:translateX(0) skewY(-4deg); opacity:1; } }
+  #introTxt { position:relative; z-index:2; text-align:center; padding:0 16px; }
+  #introBreaking { font-size:10.5vmin; font-weight:900; font-style:italic; letter-spacing:3px; line-height:1.02; color:#fff; opacity:0; transform:scale(1.14); text-shadow:0 4px 26px rgba(0,0,0,.55); }
+  #introBreaking.slam { animation:slam .45s .55s cubic-bezier(.2,1.4,.4,1) forwards; }
+  @keyframes slam { to { opacity:1; transform:scale(1); } }
+  #introChan { margin-top:16px; font-size:3.8vmin; font-weight:600; letter-spacing:9px; color:#aebadd; opacity:0; }
+  #introChan.slam { animation:fadeup .4s 1.05s ease-out forwards; }
+  @keyframes fadeup { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+  #introRule { height:1.1vmin; min-height:5px; background:#c5a253; margin:2.4vmin auto 0; width:min(60vmin, 520px); transform:scaleX(0); }
+  #introRule.slam { animation:wipe .5s .62s cubic-bezier(.2,.8,.3,1) forwards; }
+  @keyframes wipe { to { transform:scaleX(1); } }
+  #introSlogan { margin-top:2vmin; font-size:2.7vmin; font-weight:700; letter-spacing:6px; color:#dbe4ff; opacity:0; }
+  #introSlogan.slam { animation:fadeup .45s 1s ease-out forwards; }
+
+  /* ===== Live overlay ===== */
+  #livebug { position:absolute; top:calc(10px + env(safe-area-inset-top)); left:12px; z-index:10; display:flex; align-items:center; gap:5px; background:#c8102e; border-radius:2px; padding:3px 8px; font-weight:700; font-size:12px; letter-spacing:1.5px; }
+  #livebug .dot { width:8px; height:8px; border-radius:50%; background:#fff; animation:blink 1.1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity:.15; } }
+  #clockbug { position:absolute; top:calc(10px + env(safe-area-inset-top)); right:12px; z-index:10; background:rgba(0,0,0,.55); border-radius:2px; padding:3px 7px; font-weight:600; font-size:11.5px; letter-spacing:.5px; font-variant-numeric:tabular-nums; }
+
+  /* ===== News-crew viewfinder ===== */
+  #tcbug { position:absolute; top:calc(66px + env(safe-area-inset-top)); right:12px; z-index:10; background:rgba(0,0,0,.55); border-radius:2px; padding:3px 7px; font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace; font-weight:400; font-size:11.5px; letter-spacing:.5px; color:#fff; }
+  #tcbug b { color:#ff3b30; font-weight:400; }
+  #satbug { position:absolute; top:calc(94px + env(safe-area-inset-top)); right:12px; z-index:10; background:rgba(0,0,0,.55); border-radius:2px; padding:3px 7px; color:#d8dee9; font-weight:600; font-size:10px; letter-spacing:1.5px; }
+  #vu { position:absolute; right:12px; top:calc(122px + env(safe-area-inset-top)); z-index:10; width:96px; background:rgba(0,0,0,.55); border-radius:2px; padding:5px 7px 4px; }
+  #vu .vulbl { font-size:8.5px; font-weight:600; letter-spacing:2px; color:#9aa7bd; margin-top:4px; text-align:center; }
+  .vutick { position:relative; height:9px; margin-left:13px; }
+  .vutick span { position:absolute; top:0; transform:translateX(-50%); font-family:ui-monospace,Menlo,Consolas,monospace; font-size:7.5px; color:#9aa7bd; }
+  .vurow { display:flex; align-items:center; gap:4px; margin:2px 0; }
+  .vurow em { font-style:normal; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:8px; color:#9aa7bd; width:9px; text-align:right; }
+  .vutrack { position:relative; flex:1; height:6px; background:#141a26; overflow:hidden; }
+  .vutrack:after { content:''; position:absolute; inset:0; background:repeating-linear-gradient(90deg, transparent 0 5px, rgba(0,0,0,.5) 5px 6px); }
+  .vutrack i { display:block; height:100%; width:20%; background:linear-gradient(90deg,#2ea85c 0, #2ea85c 62%, #d8a711 80%, #c8102e 94%); background-size:76px 100%; background-repeat:no-repeat; }
+  #tape { position:absolute; top:calc(96px + env(safe-area-inset-top)); left:-2%; width:104%; z-index:11; background:#f2c018; color:#141414; font-weight:700; font-size:13.5px; letter-spacing:2.5px; text-align:center; padding:5px 0 6px; transform:rotate(-1.2deg); box-shadow:0 2px 8px rgba(0,0,0,.35); white-space:nowrap; overflow:hidden; border-top:1px dashed rgba(0,0,0,.25); border-bottom:1px dashed rgba(0,0,0,.25); }
+  #scenetag { display:inline-block; background:#12235c; color:#fff; font-weight:600; font-size:10px; letter-spacing:1.5px; padding:3px 7px; border-left:3px solid #c8102e; margin-bottom:0; }
+  #micflag { position:absolute; left:50%; bottom:calc(100% + 6px); transform:translateX(-50%); z-index:10; text-align:center; pointer-events:none; }
+  #micflag .cube { width:clamp(52px, min(18vw, 24dvh), 108px); aspect-ratio:1/1; margin:0 auto; background:#ffffff; border-bottom:7px solid #c5a253; border-radius:3px; display:flex; align-items:center; justify-content:center; padding:5px; overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,.4); container-type:inline-size; }
+  #micflag .cube span { display:block; white-space:nowrap; font-weight:800; font-size:15cqw; letter-spacing:.03em; color:#0d2150; line-height:1.1; }
+  #micflag .stick { width:5px; height:24px; background:#1a1a1a; margin:0 auto; }
+  .scenerow { display:flex; gap:8px; flex-wrap:wrap; }
+  .scenebtn { background:#1a2450; color:#dbe4ff; border:1.5px solid #33448a; border-radius:999px; padding:9px 13px; font-size:14px; font-weight:700; cursor:pointer; }
+  .scenebtn.on { background:#fff; color:#0a1230; border-color:#fff; }
+  #chanbug { position:absolute; top:calc(38px + env(safe-area-inset-top)); right:12px; z-index:10; background:rgba(0,0,0,.55); color:#fff; border-radius:2px; padding:3px 7px; font-weight:600; font-size:11px; letter-spacing:2px; }
+  #bottomstack { position:absolute; left:0; right:0; bottom:0; z-index:10; display:flex; flex-direction:column; }
+  #lower { order:1; padding:0 12px; margin-bottom:8px; pointer-events:none; width:min(94%,860px); }
+  #locstrap { display:flex; align-items:center; gap:8px; margin-bottom:5px; min-width:0; }
+  #l3bar { display:flex; align-items:stretch; height:34px; box-shadow:0 2px 10px rgba(0,0,0,.35); border-bottom:3px solid #c5a253; }
+  #l3name { background:#10254a; color:#fff; font-weight:800; font-size:15px; letter-spacing:.6px; display:flex; align-items:center; padding:0 12px; white-space:nowrap; text-transform:uppercase; }
+  #loc { color:#fff; font-weight:700; font-size:11px; letter-spacing:1.2px; text-transform:uppercase; text-shadow:0 1px 3px rgba(0,0,0,.85); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #l3slug { background:#fff; color:#14213d; font-weight:800; font-size:12.5px; letter-spacing:1px; display:flex; align-items:center; padding:0 12px 0 20px; white-space:nowrap; text-transform:uppercase; clip-path:polygon(11px 0, 100% 0, 100% 100%, 0 100%); margin-left:-11px; flex:1; min-width:0; overflow:hidden; }
+  #headline { background:#fff; color:#14213d; font-weight:700; font-size:14.5px; line-height:1.25; letter-spacing:.2px; padding:7px 12px; border-top:3px solid #c5a253; text-transform:uppercase; box-shadow:0 2px 10px rgba(0,0,0,.35); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #l3bug { background:#c5a253; color:#10254a; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 10px; border-left:2px solid #10254a; min-width:76px; }
+  #bugname { font-weight:800; font-size:10.5px; letter-spacing:1.5px; }
+  #bugclock { font-size:9.5px; color:#3d3220; font-variant-numeric:tabular-nums; letter-spacing:1px; }
+  #reporter { display:none; }
+  #tickerwrap { order:3; position:relative; height:34px; background:#0a1230; border-top:2px solid #c5a253; display:flex; align-items:center; overflow:hidden; }
+  #tickerlbl { background:#fff; color:#0a1230; font-weight:800; font-size:12px; letter-spacing:1.5px; padding:0 10px; height:100%; display:flex; align-items:center; white-space:nowrap; z-index:2; }
+  #ticker { white-space:nowrap; font-size:14px; font-weight:500; color:#e8ecf4; will-change:transform; }
+  #ticker span { padding-right:0; }
+
+  /* ===== Controls ===== */
+  #controls { order:2; display:flex; justify-content:center; gap:6px; padding:2px 12px 8px; flex-wrap:wrap; transition:opacity .45s ease, transform .45s ease; }
+  #controls.ctlhide { opacity:0; pointer-events:none; transform:translateY(6px); }
+  .cbtn { background:rgba(8,12,26,.62); color:#fff; border:1px solid rgba(255,255,255,.18); border-radius:6px; padding:7px 11px; font-size:12px; font-weight:600; letter-spacing:.6px; cursor:pointer; }
+  .cbtn.attn { border-color:#ffd34d; color:#ffd34d; animation:pulse 1.1s ease-in-out infinite; }
+  .cbtn:active { transform:scale(.95); }
+  #snap { background:#c8102e; border-color:rgba(255,255,255,.2); font-size:12.5px; padding:7px 13px; }
+  #panel { position:absolute; left:0; right:0; bottom:0; z-index:35; background:#101736; border-top:2px solid #33448a; border-radius:18px 18px 0 0; padding:16px 16px calc(18px + env(safe-area-inset-bottom)); max-height:86dvh; overflow:auto; }
+  #panel h3 { margin:2px 0 10px; font-size:16px; letter-spacing:.4px; }
+  #panel label { display:block; font-size:12.5px; font-weight:800; letter-spacing:1.4px; color:#8fa3d9; text-transform:uppercase; margin:12px 0 5px; }
+  #panel input[type=text] { width:100%; background:#0a102c; border:1.5px solid #33448a; color:#fff; border-radius:10px; padding:11px 12px; font-size:16px; }
+  #panel .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  #savePhoto { position:absolute; inset:0; z-index:45; background:rgba(3,5,12,.92); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:20px; text-align:center; }
+  #savePhoto img { max-width:92%; max-height:62%; border-radius:10px; border:2px solid #33448a; }
+  #btnRec { background:#c8102e; border-color:rgba(255,255,255,.2); font-size:12.5px; padding:7px 13px; }
+  #btnRec.recording { background:#fff; color:#c8102e; animation:pulse 1.2s ease-in-out infinite; }
+  #savePhoto video { max-width:92%; max-height:62%; border-radius:10px; border:2px solid #33448a; background:#000; }
+  @media (max-height: 520px) {
+    #headline { font-size:11px; padding:5px 9px; }
+    #l3name { font-size:12.5px; padding:0 9px; } #l3slug { font-size:11px; } #loc { font-size:10px; }
+    #l3bar { height:28px; }
+    #bugclock { font-size:8.5px; }
+    #scenetag { font-size:9.5px; }
+    #vu, #satbug { display:none; }
+    #lower { width:min(68%,600px); margin-bottom:6px; }
+    #tickerwrap { height:28px; }
+    #ticker { font-size:12.5px; }
+    .cbtn { padding:6px 9px; font-size:11.5px; }
+    #controls { padding-bottom:6px; }
+    #panel { max-height:94dvh; }
+    #start { justify-content:flex-start; gap:10px; padding:16px; }
+    #start h1 { font-size:23px; }
+    #goLive { padding:13px 32px; font-size:17px; }
+    #goSelf { padding:11px 24px; font-size:14px; }
+  }
+  /* Unfolded foldable / near-square big screen: broadcast composition, graphics stay capped */
+  @media (min-width:600px) and (max-aspect-ratio: 3/2) {
+    #lower { width:min(72%,720px); }
+    #headline { font-size:14px; padding:8px 12px; }
+    #l3name { font-size:16.5px; } #l3slug { font-size:13.5px; } #loc { font-size:12px; }
+    #l3bar { height:38px; } #bugname { font-size:11.5px; }
+    .cbtn { font-size:13px; padding:9px 14px; }
+  }
+  /* Wide but short screens (landscape foldable/tablet): keep the stack slim */
+  @media (min-width:600px) and (max-height:620px) {
+    #vu { display:none; }
+    #lower { width:min(60%,640px); }
+  }
+  /* Spanned across the hinge (foldable fully open, both panels one surface) */
+  @media (horizontal-viewport-segments: 2) {
+    #lower { width:min(72%,720px); }
+  }
+  @media (vertical-viewport-segments: 2) {
+    #lower { width:min(72%,720px); }
+  }
+  @media (screen-spanning: single-fold-vertical) {
+    #lower { width:min(72%,720px); }
+  }
+  @media (screen-spanning: single-fold-horizontal) {
+    #lower { width:min(72%,720px); }
+  }
+  /* Narrow portrait screens: lower third spans the safe width and tightens so nothing clips */
+  @media (max-width: 480px) {
+    #lower { width:100%; padding:0 8px; margin-bottom:6px; }
+    #scenetag { font-size:9.5px; padding:2px 6px; }
+    #l3name { font-size:12px; padding:0 8px; } #l3slug { font-size:10.5px; padding:0 8px 0 15px; } #loc { font-size:9.5px; letter-spacing:.8px; }
+    #l3bug { min-width:60px; padding:0 6px; } #bugname { font-size:9px; }
+    #headline { font-size:12px; padding:5px 8px; }
+    #headline { font-size:12px; padding:6px 9px; }
+  }
+  /* SELF REPORT: clean full-screen self-preview (the Duo Preview idea) — meter clutter off, broadcast graphics stay */
+  body.selfview #vu, body.selfview #satbug { display:none; }
+  body.program #tcbug, body.program #satbug, body.program #vu, body.program #chanbug, body.program #clockbug { display:none; }
+  #flash { position:absolute; inset:0; background:#fff; opacity:0; z-index:44; pointer-events:none; }
+  #err { position:absolute; left:50%; top:44%; transform:translate(-50%,-50%); z-index:50; background:#2a0f14; border:1.5px solid #e01f26; color:#ffd9d6; border-radius:12px; padding:16px 18px; max-width:86%; font-size:15px; line-height:1.45; text-align:center; }
+  .cbtn.on { background:#fff; color:#0a1230; border-color:#fff; }
+  #toast { position:absolute; left:50%; bottom:128px; transform:translateX(-50%) translateY(8px); z-index:46; background:rgba(8,12,26,.9); color:#fff; border:1px solid rgba(255,255,255,.25); border-radius:6px; padding:9px 14px; font-size:13px; font-weight:600; letter-spacing:.3px; opacity:0; pointer-events:none; transition:opacity .3s ease, transform .3s ease; max-width:88%; text-align:center; }
+  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <video id="vid" autoplay playsinline muted></video>
+
+  <!-- Live overlay -->
+  <div id="overlay" class="hidden">
+    <div id="livebug"><span class="dot"></span><span id="liveTxt">LIVE</span></div>
+    <div id="clockbug">--:--:--</div>
+    <div id="chanbug">LOEWS LIVE</div>
+    <div id="tcbug"><b>● REC</b> <span id="tc">TC 00:00:00:00</span></div>
+    <div id="satbug">SAT UPLINK ▂▄▆█</div>
+    <div id="vu"><div class="vutick"><span style="left:55%">-20</span><span style="left:78%">-9</span><span style="left:93%">0</span></div><div class="vurow"><em>1</em><div class="vutrack"><i id="vu1"></i></div></div><div class="vurow"><em>2</em><div class="vutrack"><i id="vu2"></i></div></div><div class="vulbl">AUDIO</div></div>
+    <div id="tape" class="hidden"></div>
+    <div id="bottomstack">
+    <div id="micflag" class="hidden"><div class="cube" id="micCube"><span id="micCubeTxt">LOEWS LIVE</span></div><div class="stick"></div></div>
+    <div id="lower">
+      <div id="locstrap"><span id="scenetag">ON PROPERTY</span><span id="loc">ORLANDO</span></div>
+      <div id="l3bar"><div id="l3name">GO LIVE</div><div id="l3slug">RESORT UPDATE</div><div id="l3bug"><div id="bugname">LOEWS LIVE</div><div id="bugclock">--:--</div></div></div>
+      <div id="headline">LIVE FROM LOEWS HOTELS AT UNIVERSAL ORLANDO</div>
+      <div id="reporter">Reporting live: Jeremy Levin</div>
+    </div>
+    <div id="tickerwrap"><div id="tickerlbl">LATEST</div><div id="ticker"></div></div>
+    <div id="controls">
+      <button class="cbtn" id="btnDice" title="Sample headlines" style="font-size:12.5px;letter-spacing:1px;">SAMPLE</button>
+      <button class="cbtn" id="snap">PHOTO</button>
+      <button class="cbtn" id="btnRec">● RECORD</button>
+      <button class="cbtn" id="btnFlip" title="Flip camera" style="font-size:12.5px;letter-spacing:1px;">FLIP</button>
+      <button class="cbtn" id="btnRot" style="font-size:12.5px;letter-spacing:1px;">ROTATE</button>
+      <button class="cbtn" id="btnEdit">EDIT</button>
+      <button class="cbtn" id="btnCrew">CREW</button>
+      <button class="cbtn" id="btnSelf">SELF REPORT</button>
+      <button class="cbtn" id="btnFb">FB LIVE</button>
+    </div>
+    </div>
+  </div>
+
+  <!-- Edit panel -->
+  <div id="panel" class="hidden">
+    <h3>Newsroom controls</h3>
+    <label>Scene</label>
+    <div class="scenerow" id="sceneRow"></div>
+    <label>Headline</label>
+    <input type="text" id="fHeadline" maxlength="110">
+    <label>Location</label>
+    <input type="text" id="fLoc" maxlength="40">
+    <label>Reporter</label>
+    <input type="text" id="fReporter" maxlength="40">
+    <label>Ticker</label>
+    <input type="text" id="fTicker" maxlength="220">
+    <label>Channel</label>
+    <input type="text" id="fChan" maxlength="8">
+    <div class="row">
+      <button class="cbtn" id="btnReplay">Replay intro</button>
+      <button class="cbtn" id="btnDone" style="background:#c8102e;border-color:rgba(255,255,255,.35);">DONE</button>
+    </div>
+  </div>
+
+  <!-- Save photo -->
+  <div id="savePhoto" class="hidden">
+    <div style="font-weight:900;font-size:19px;" id="saveTitle">Your photo</div>
+    <img id="shotImg" alt="Your breaking news photo">
+    <video id="shotVid" class="hidden" controls playsinline></video>
+    <div id="saveHint" style="color:#b9c4e4;font-size:14px;">Tap SAVE TO CAMERA ROLL — it goes into your Photos app.</div>
+    <div style="display:flex;gap:10px;">
+      <button class="cbtn" id="btnShare" style="background:#c8102e;border-color:rgba(255,255,255,.35);font-size:14px;font-weight:700;padding:11px 18px;">SAVE TO CAMERA ROLL</button>
+      <button class="cbtn" id="btnBack" style="background:#c8102e;border-color:rgba(255,255,255,.35);">Back to LIVE</button>
+    </div>
+  </div>
+
+  <!-- Intro -->
+  <div id="intro" class="hidden">
+    <div class="bars"><div class="bar b1"></div><div class="bar b2"></div><div class="bar b3"></div><div class="bar b4"></div></div>
+    <div id="introTxt"><div id="introBreaking">GO LIVE</div><div id="introRule"></div><div id="introChan">LOEWS LIVE</div><div id="introSlogan">LIVE FROM UNIVERSAL ORLANDO.</div></div>
+  </div>
+
+  <!-- Start -->
+  <div id="start">
+    <div style="font-size:15px;font-weight:900;letter-spacing:6px;color:#fff;">LOEWS <span style="color:#c5a253;">LIVE</span></div>
+    <h1>LOEWS HOTELS<br><span class="red">GO LIVE</span></h1>
+    <p>Broadcast-quality live graphics, Loews style. Tap GO LIVE for the intro, then your camera goes live on property with the full package — lower third, ticker, timecode and recording.</p>
+    <button id="goLive">● GO LIVE</button>
+    <button id="goSelf">SELF REPORT</button>
+    <p class="selfhint">Cover screen detected — SELF REPORT uses the front camera so you can report on camera.</p>
+    <p style="font-size:12.5px;color:#63749f;">Your camera stays on your phone — nothing is uploaded anywhere.</p>
+    <p style="font-size:11.5px;color:#45548a;letter-spacing:1px;">PRODUCED BY: JHNL SECURITY TECH</p>
+  </div>
+
+  <div id="flash"></div>
+  <div id="toast"></div>
+  <div id="err" class="hidden"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $ = function(id){ return document.getElementById(id); };
+
+var LANGS = {
+  en: { name:'English', flag:'🇺🇸', live:'LIVE', breaking:'GO LIVE', chan:'LOEWS LIVE', from:'LIVE FROM', rep:'Reporting live', tickerLbl:'LATEST', loc:'ORLANDO, FL',
+    speak:'en-US', speakTxt:'We are live!',
+    headlines:['Welcome to Loews Hotels at Universal Orlando','Live from the lagoon: water taxis running between the resorts and CityWalk','A perfect pool day across the resorts — sunny skies over Universal Orlando','Helios Grand Hotel welcomes guests to the Epic Universe experience','Portofino Bay brings a taste of the Italian Riviera to Orlando'],
+    ticker:'Resort update: Water taxis run about every 15 minutes to CityWalk • Pool hours 8 AM to 10 PM • Valet parking available at all properties • Weather: Clear skies, high near 87 • ' },
+};
+
+var lang = 'en';
+var facing = 'environment';
+var stream = null;
+var tickerX = 0, tickerW = 0, lastTs = 0;
+var shotBlob = null;
+var lastMedia = null;
+var rec = { mr:null, chunks:[], startTs:0, raf:0, cv:null, ctx:null };
+var vuA = { l1:18, l2:18, t1:30, t2:30, n:0 };
+
+function L(){ return LANGS[lang]; }
+
+function buildLangRows(){
+  ['langRow','langRow2'].forEach(function(rid){
+    var row = $(rid); if (!row) return; row.innerHTML = '';
+    Object.keys(LANGS).forEach(function(k){
+      var b = document.createElement('button');
+      b.className = 'langbtn' + (k === lang ? ' on' : '');
+      b.textContent = LANGS[k].flag + ' ' + LANGS[k].name;
+      b.onclick = function(){ setLang(k); };
+      row.appendChild(b);
+    });
+  });
+}
+function applyLang(){
+  var d = L();
+  $('liveTxt').textContent = d.live;
+  syncName();
+  $('tickerlbl').textContent = d.tickerLbl;
+  if (!$('fHeadline').dataset.touched) $('headline').textContent = d.headlines[0];
+  if (!$('fTicker').dataset.touched) setTicker(d.ticker);
+  if (!$('fLoc').dataset.touched) $('loc').textContent = d.from + ' ' + d.loc;
+  if (!$('fReporter').dataset.touched) $('reporter').textContent = d.rep + ': ' + reporterName();
+  $('chanbug').textContent = chanShort();
+}
+function reporterName(){
+  var v = ($('fReporter').value || '').trim();
+  return v || 'Jeremy Levin';
+}
+function updateReporterStrap(){
+  if (crewMode || selfMode) $('reporter').textContent = reporterName() + ' • Reporting live on scene';
+  else $('reporter').textContent = L().rep + ': ' + reporterName();
+  syncName();
+}
+function chanShort(){
+  var v = ($('fChan').value || '').trim().toUpperCase();
+  return v || 'LOEWS LIVE';
+}
+function setTicker(t){
+  $('ticker').innerHTML = '<span>' + t + '</span><span>' + t + '</span>';
+  tickerX = 0;
+  requestAnimationFrame(function(){ tickerW = $('ticker').firstChild ? $('ticker').firstChild.offsetWidth : 0; });
+}
+function setLang(k){
+  lang = k;
+  buildLangRows();
+  applyLang();
+}
+
+/* ---- clock ---- */
+setInterval(function(){
+  var d = new Date();
+  function p(n){ return (n < 10 ? '0' : '') + n; }
+  $('clockbug').textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  var bc = $('bugclock'); if (bc) bc.textContent = p(d.getHours()) + ':' + p(d.getMinutes());
+  var fr = Math.floor((Date.now() % 1000) / 40);
+  var tcEl = $('tc'); if (tcEl) tcEl.textContent = 'TC ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) + ':' + p(fr);
+  if (rec.mr && rec.mr.state === 'recording'){ var rs = Math.floor((Date.now() - rec.startTs) / 1000); $('btnRec').textContent = '\u23F9 STOP ' + Math.floor(rs / 60) + ':' + p(rs % 60); }
+}, 250);
+
+/* ---- ticker animation ---- */
+function tick(ts){
+  if (!lastTs) lastTs = ts;
+  var dt = Math.min(64, ts - lastTs); lastTs = ts;
+  if (tickerW > 0 && !$('overlay').classList.contains('hidden')){
+    tickerX -= dt * 0.1;
+    if (-tickerX >= tickerW) tickerX += tickerW;
+    $('ticker').style.transform = 'translateX(' + tickerX + 'px)';
+  }
+  vuA.n++;
+  if (vuA.n % 8 === 0){ vuA.t1 = 20 + Math.random() * 58; vuA.t2 = 20 + Math.random() * 58; if (Math.random() < 0.1){ vuA.t1 = 5 + Math.random() * 10; vuA.t2 = 5 + Math.random() * 10; } }
+  vuA.l1 += (vuA.t1 - vuA.l1) * (vuA.t1 > vuA.l1 ? 0.55 : 0.12);
+  vuA.l2 += (vuA.t2 - vuA.l2) * (vuA.t2 > vuA.l2 ? 0.55 : 0.12);
+  if (!$('overlay').classList.contains('hidden')){ var e1 = $('vu1'), e2 = $('vu2'); if (e1) e1.style.width = vuA.l1.toFixed(1) + '%'; if (e2) e2.style.width = vuA.l2.toFixed(1) + '%'; }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* ---- dramatic sting (WebAudio) + voice ---- */
+var AC = null;
+function sting(){
+  try{
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === 'suspended') AC.resume();
+    var t = AC.currentTime;
+    function hit(when, freq, dur, gain){
+      var o = AC.createOscillator(), g = AC.createGain();
+      o.type = 'sawtooth'; o.frequency.value = freq;
+      var o2 = AC.createOscillator(), g2 = AC.createGain();
+      o2.type = 'square'; o2.frequency.value = freq / 2;
+      g.gain.setValueAtTime(0, when); g.gain.linearRampToValueAtTime(gain, when + 0.02); g.gain.exponentialRampToValueAtTime(0.001, when + dur);
+      g2.gain.setValueAtTime(0, when); g2.gain.linearRampToValueAtTime(gain * 0.7, when + 0.02); g2.gain.exponentialRampToValueAtTime(0.001, when + dur);
+      o.connect(g).connect(AC.destination); o2.connect(g2).connect(AC.destination);
+      o.start(when); o.stop(when + dur + 0.05); o2.start(when); o2.stop(when + dur + 0.05);
+    }
+    hit(t + 0.05, 98, 0.5, 0.13);
+    hit(t + 0.55, 98, 0.5, 0.15);
+    hit(t + 1.05, 147, 1.3, 0.19);
+    /* whoosh */
+    var len = AC.sampleRate * 0.7, buf = AC.createBuffer(1, len, AC.sampleRate), ch = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (i / len);
+    var src = AC.createBufferSource(); src.buffer = buf;
+    var f = AC.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(2800, t + 0.6);
+    var ng = AC.createGain(); ng.gain.setValueAtTime(0.08, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+    src.connect(f).connect(ng).connect(AC.destination); src.start(t);
+  }catch(e){}
+}
+function speakBreaking(){
+  try{
+    var d = L();
+    var u = new SpeechSynthesisUtterance(d.speakTxt);
+    u.lang = d.speak; u.rate = 0.92; u.pitch = 0.7; u.volume = 1;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* ---- intro sequence ---- */
+function playIntro(done){
+  var d = L();
+  var intro = $('intro');
+  $('introBreaking').textContent = d.breaking;
+  $('introChan').textContent = d.chan;
+  $('introBreaking').classList.remove('slam');
+  $('introChan').classList.remove('slam');
+  $('introRule').classList.remove('slam');
+  $('introSlogan').classList.remove('slam');
+  intro.classList.remove('hidden');
+  void intro.offsetWidth; /* restart animations */
+  var bars = intro.querySelectorAll('.bar');
+  bars.forEach(function(b){ b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; });
+  sting();
+  setTimeout(function(){ $('introBreaking').classList.add('slam'); }, 30);
+  setTimeout(function(){ $('introRule').classList.add('slam'); $('introChan').classList.add('slam'); $('introSlogan').classList.add('slam'); speakBreaking(); }, 60);
+  setTimeout(function(){ intro.classList.add('hidden'); if (done) done(); }, 2600);
+}
+
+/* ---- camera ---- */
+function showErr(msg){
+  var e = $('err'); e.textContent = msg; e.classList.remove('hidden');
+  setTimeout(function(){ e.classList.add('hidden'); }, 6000);
+}
+async function startCamera(){
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    showErr('This browser cannot open the camera here. Open this page in Safari or Chrome on your phone and allow camera access.');
+    return false;
+  }
+  try{
+    if (stream) stream.getTracks().forEach(function(t){ t.stop(); });
+    try { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:true }); }
+    catch(e2) { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false }); }
+    $('vid').srcObject = stream;
+    return true;
+  }catch(e){
+    showErr('Camera blocked. Please allow camera access for this site in your browser settings, then tap GO LIVE again.');
+    return false;
+  }
+}
+
+$('goLive').onclick = async function(){
+  var ok = await startCamera();
+  if (!ok) return;
+  $('start').classList.add('hidden');
+  playIntro(function(){
+    $('overlay').classList.remove('hidden'); pokeControls();
+    liveOn = true; uiModeSync();
+    if (!rotSeen){ $('btnRot').classList.add('attn'); showToast('Picture sideways? Tap ROTATE to turn it upright.'); }
+    if (isCoverShape()) setSelfMode(true);
+  });
+};
+
+/* ---- Cover-screen shape: narrow + tall (folded phone outside screen) ---- */
+function isCoverShape(){
+  var w = window.innerWidth || 0, h = window.innerHeight || 0;
+  return w > 0 && w <= 430 && (h / w) >= 2.3;
+}
+function foldSpanned(){
+  try {
+    return window.matchMedia('(horizontal-viewport-segments: 2)').matches
+        || window.matchMedia('(vertical-viewport-segments: 2)').matches
+        || window.matchMedia('(screen-spanning: single-fold-vertical)').matches
+        || window.matchMedia('(screen-spanning: single-fold-horizontal)').matches;
+  } catch(e){ return false; }
+}
+function refreshShape(){
+  document.body.classList.toggle('covshape', isCoverShape());
+  document.body.classList.toggle('spanned', foldSpanned());
+}
+window.addEventListener('resize', refreshShape);
+try {
+  ['(horizontal-viewport-segments: 2)', '(vertical-viewport-segments: 2)', '(device-posture: folded)'].forEach(function(q){
+    var mq = window.matchMedia(q);
+    if (mq && mq.addEventListener) mq.addEventListener('change', refreshShape);
+  });
+} catch(e){}
+refreshShape();
+$('goSelf').onclick = async function(){
+  facing = 'user';
+  var ok = await startCamera();
+  if (!ok) return;
+  $('start').classList.add('hidden');
+  playIntro(function(){
+    $('overlay').classList.remove('hidden'); pokeControls();
+    liveOn = true; uiModeSync();
+    setSelfMode(true);
+  });
+};
+
+$('btnFlip').onclick = async function(){
+  facing = (facing === 'environment') ? 'user' : 'environment';
+  await startCamera();
+};
+
+/* ---- Manual camera rotation (foldables can report a sideways feed) ---- */
+var rot = 0;
+try { rot = parseInt(localStorage.getItem('news-rot') || '0') || 0; } catch(e) {}
+var rotSeen = false;
+try { rotSeen = localStorage.getItem('news-rot') !== null; } catch(e) {}
+function applyRot(){
+  var v = $('vid');
+  var swap = (rot % 180 !== 0);
+  v.style.width = swap ? '100dvh' : '100vw';
+  v.style.height = swap ? '100vw' : '100dvh';
+  v.style.transform = 'translate(-50%,-50%) rotate(' + rot + 'deg)';
+  try { localStorage.setItem('news-rot', String(rot)); } catch(e) {}
+}
+$('btnRot').onclick = function(){ rot = (rot + 90) % 360; applyRot(); rotSeen = true; $('btnRot').classList.remove('attn'); pokeControls(); };
+applyRot();
+function drawVideoCover(ctx, v, W, H){
+  var vw = v.videoWidth, vh = v.videoHeight; if (!vw) return;
+  ctx.save();
+  if (rot === 0){
+    var s = Math.max(W / vw, H / vh);
+    ctx.drawImage(v, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
+  } else {
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(rot * Math.PI / 180);
+    var bw = (rot % 180 === 0) ? W : H, bh = (rot % 180 === 0) ? H : W;
+    var s2 = Math.max(bw / vw, bh / vh);
+    ctx.drawImage(v, -vw * s2 / 2, -vh * s2 / 2, vw * s2, vh * s2);
+  }
+  ctx.restore();
+}
+$('btnDice').onclick = function(){
+  var hs = L().headlines;
+  $('headline').textContent = hs[Math.floor(Math.random() * hs.length)];
+};
+$('btnEdit').onclick = function(){
+  $('fHeadline').value = $('headline').textContent;
+  $('fLoc').value = $('loc').textContent;
+  $('fReporter').value = reporterName();
+  $('fTicker').value = L().ticker;
+  $('fChan').value = chanShort();
+  $('panel').classList.remove('hidden');
+  pokeControls();
+};
+$('btnDone').onclick = function(){
+  $('headline').textContent = $('fHeadline').value || $('headline').textContent;
+  $('loc').textContent = $('fLoc').value || $('loc').textContent;
+  updateReporterStrap();
+  setTicker($('fTicker').value || L().ticker);
+  $('chanbug').textContent = chanShort();
+  var bn = $('bugname'); if (bn) bn.textContent = chanShort();
+  $('micCubeTxt').textContent = chanShort(); fitMicText();
+  $('panel').classList.add('hidden');
+  pokeControls();
+};
+['fHeadline','fTicker','fLoc','fReporter','fChan'].forEach(function(id){
+  $(id).addEventListener('input', function(){ $(id).dataset.touched = '1'; });
+});
+$('btnReplay').onclick = function(){
+  $('panel').classList.add('hidden');
+  $('overlay').classList.add('hidden');
+  playIntro(function(){ $('overlay').classList.remove('hidden'); pokeControls(); });
+};
+
+/* ---- controls auto-hide: program feed shows no controls; tap restores ---- */
+var ctlTimer = 0;
+function pokeControls(){
+  var c = $('controls'); if (!c) return;
+  c.classList.remove('ctlhide');
+  clearTimeout(ctlTimer);
+  ctlTimer = setTimeout(function(){
+    if (!$('panel').classList.contains('hidden')) return;
+    if (!$('savePhoto').classList.contains('hidden')) return;
+    c.classList.add('ctlhide');
+  }, rotSeen ? 3500 : 20000);
+}
+$('stage').addEventListener('pointerdown', function(){
+  if (!$('overlay').classList.contains('hidden')) pokeControls();
+});
+
+/* ---- photo (overlay burned in) ---- */
+function rr(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function drawMicFlag(ctx, W, H, u, lyTop){
+  var mw = Math.min(W * 0.18, H * 0.26);
+  var stickH = Math.max(2.2 * u, mw * 0.3);
+  var my = lyTop - 1.2 * u - stickH - mw;
+  var mx = W / 2 - mw / 2;
+  ctx.fillStyle = '#ffffff'; rr(ctx, mx, my, mw, mw, 0.3 * u); ctx.fill();
+  ctx.fillStyle = '#c5a253'; ctx.fillRect(mx, my + mw - Math.max(0.7 * u, mw * 0.08), mw, Math.max(0.7 * u, mw * 0.08));
+  ctx.fillStyle = '#1a1a1a'; ctx.fillRect(W / 2 - 0.3 * u, my + mw, 0.6 * u, stickH);
+  ctx.fillStyle = '#0d2150'; ctx.textAlign = 'center';
+  var mfs = mw * 0.17; ctx.font = '800 ' + mfs + 'px Arial';
+  while (ctx.measureText(chanShort()).width > mw - 1.2 * u && mfs > 0.8 * u){ mfs -= 0.2 * u; ctx.font = '800 ' + mfs + 'px Arial'; }
+  ctx.fillText(chanShort(), W / 2, my + mw / 2); ctx.textAlign = 'left';
+}
+function drawLowerThird(ctx, W, H, u){
+  var d = L();
+  var ly = H - 21.2 * u;
+  var lw = Math.round(W * 0.94), x0 = Math.round(1 * u);
+  ctx.font = '600 ' + (1.6 * u) + 'px Arial';
+  var tag = $('scenetag').textContent, tagw = ctx.measureText(tag).width + 1.8 * u;
+  ctx.fillStyle = '#12235c'; rr(ctx, x0, ly, tagw, 3.2 * u, 0.2 * u); ctx.fill();
+  ctx.fillStyle = '#c8102e'; ctx.fillRect(x0, ly, 0.5 * u, 3.2 * u);
+  ctx.fillStyle = '#ffffff'; ctx.fillText(tag, x0 + 1.1 * u, ly + 1.65 * u);
+  ctx.font = '700 ' + (1.7 * u) + 'px Arial';
+  ctx.fillText($('loc').textContent, x0 + tagw + 1.2 * u, ly + 1.65 * u);
+  var by = ly + 3.8 * u, bh = 4.6 * u;
+  var name = (crewMode || selfMode) ? reporterName().toUpperCase() : d.breaking;
+  ctx.font = '800 ' + (2.3 * u) + 'px Arial';
+  var nameW = Math.max(ctx.measureText(name).width + 3 * u, lw * 0.3);
+  var slug = slugForScene();
+  ctx.font = '800 ' + (1.9 * u) + 'px Arial';
+  var slugW = ctx.measureText(slug).width + 4.2 * u;
+  var bugW = lw - nameW - slugW; if (bugW < 12 * u){ slugW -= (12 * u - bugW); bugW = 12 * u; }
+  ctx.fillStyle = '#10254a'; ctx.fillRect(x0, by, nameW, bh);
+  ctx.fillStyle = '#ffffff'; ctx.font = '800 ' + (2.3 * u) + 'px Arial';
+  ctx.fillText(name, x0 + 1.5 * u, by + bh / 2);
+  ctx.fillStyle = '#ffffff'; ctx.beginPath();
+  ctx.moveTo(x0 + nameW + 1.1 * u, by); ctx.lineTo(x0 + nameW + slugW, by); ctx.lineTo(x0 + nameW + slugW, by + bh); ctx.lineTo(x0 + nameW, by + bh); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#14213d'; ctx.font = '800 ' + (1.9 * u) + 'px Arial';
+  ctx.fillText(slug, x0 + nameW + 2.6 * u, by + bh / 2);
+  ctx.fillStyle = '#c5a253'; ctx.fillRect(x0 + nameW + slugW, by, bugW, bh);
+  ctx.fillStyle = '#10254a'; ctx.fillRect(x0 + nameW + slugW, by, 0.35 * u, bh);
+  ctx.fillStyle = '#10254a'; ctx.font = '800 ' + (1.6 * u) + 'px Arial'; ctx.textAlign = 'center';
+  ctx.fillText(chanShort(), x0 + nameW + slugW + bugW / 2, by + bh * 0.32);
+  ctx.fillStyle = '#3d3220'; ctx.font = '600 ' + (1.35 * u) + 'px Arial';
+  ctx.fillText($('clockbug').textContent.slice(0, 5), x0 + nameW + slugW + bugW / 2, by + bh * 0.72);
+  ctx.textAlign = 'left';
+  var hy = by + bh + 0.45 * u, hh = 5.4 * u;
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(x0, hy, lw, hh);
+  ctx.fillStyle = '#c5a253'; ctx.fillRect(x0, hy, lw, 0.4 * u);
+  ctx.fillStyle = '#14213d'; ctx.font = '700 ' + (2.15 * u) + 'px Arial';
+  var hl = $('headline').textContent.toUpperCase();
+  while (ctx.measureText(hl).width > lw - 2.4 * u && hl.length > 4) hl = hl.slice(0, -1);
+  ctx.fillText(hl, x0 + 1.2 * u, hy + hh / 2 + 0.1 * u);
+}
+$('snap').onclick = function(){
+  var v = $('vid');
+  if (!v.videoWidth){ showErr('Camera is still warming up — give it a second and tap again.'); return; }
+  var fl = $('flash'); fl.style.transition = 'none'; fl.style.opacity = '0.9';
+  setTimeout(function(){ fl.style.transition = 'opacity .45s'; fl.style.opacity = '0'; }, 40);
+  var W = (rot % 180 !== 0) ? v.videoHeight : v.videoWidth;
+  var H = (rot % 180 !== 0) ? v.videoWidth : v.videoHeight;
+  var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  var ctx = cv.getContext('2d');
+  drawVideoCover(ctx, v, W, H);
+  var u = Math.max(W, H) / 100; /* scale unit */
+  var d = L();
+  /* LIVE bug */
+  ctx.fillStyle = '#c8102e'; rr(ctx, 1.2 * u, 1.2 * u, 8.8 * u, 3.6 * u, 0.2 * u); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(2.9 * u, 3 * u, 0.62 * u, 0, 7); ctx.fill();
+  ctx.font = '700 ' + (1.9 * u) + 'px Arial'; ctx.textBaseline = 'middle';
+  ctx.fillText(d.live, 4.3 * u, 3.05 * u);
+  /* clock + TC: crew viewfinder gear only */
+  if (crewMode){
+  ctx.font = '600 ' + (1.7 * u) + 'px Arial';
+  var ct = $('clockbug').textContent, ctw = ctx.measureText(ct).width;
+  ctx.fillStyle = 'rgba(0,0,0,.55)'; rr(ctx, W - ctw - 3.4 * u, 1.2 * u, ctw + 2.2 * u, 3.4 * u, 0.2 * u); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.fillText(ct, W - ctw - 2.3 * u, 2.95 * u);
+  ctx.fillStyle = '#ff3b30'; ctx.font = '700 ' + (1.6 * u) + 'px Arial';
+  ctx.fillText('● REC', 1.4 * u, 7 * u);
+  ctx.fillStyle = '#ffffff'; ctx.font = '400 ' + (1.6 * u) + 'px Menlo, Consolas, monospace';
+  var tct = $('tc') ? $('tc').textContent : '';
+  ctx.fillText(tct, 7.4 * u, 7 * u);
+  }
+  if (scene === 'crime'){ ctx.fillStyle = '#f2c018'; ctx.fillRect(0, 11.5 * u, W, 4 * u); ctx.fillStyle = '#141414'; ctx.font = '700 ' + (2.4 * u) + 'px Arial'; ctx.fillText('WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS', 2 * u, 13.6 * u); }
+  if (crewMode || selfMode) drawMicFlag(ctx, W, H, u, (H - 21.2 * u) - 4.4 * u);
+  drawLowerThird(ctx, W, H, u);
+  /* ticker */
+  ctx.fillStyle = '#0a1230'; ctx.fillRect(0, H - 6.4 * u, W, 6.4 * u);
+  ctx.fillStyle = '#c5a253'; ctx.fillRect(0, H - 6.4 * u, W, 0.5 * u);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, H - 6.4 * u, 13 * u, 6.4 * u);
+  ctx.fillStyle = '#0a1230'; ctx.font = '800 ' + (2.2 * u) + 'px Arial';
+  ctx.fillText(d.tickerLbl, 1.4 * u, H - 3.1 * u);
+  ctx.fillStyle = '#e8ecf4'; ctx.font = '500 ' + (2.3 * u) + 'px Arial';
+  ctx.fillText(L().ticker, 14.5 * u, H - 3.1 * u);
+  cv.toBlob(function(blob){
+    shotBlob = blob; lastMedia = { kind:'photo', blob: blob, name:'loews-live.jpg' };
+    $('saveTitle').textContent = 'Your photo';
+    var sh2 = $('saveHint'); if (sh2) sh2.textContent = 'Tap SAVE TO CAMERA ROLL, then tap Save Image — or press & hold the photo.';
+    $('shotVid').classList.add('hidden'); $('shotImg').classList.remove('hidden');
+    $('shotImg').src = URL.createObjectURL(blob);
+    $('savePhoto').classList.remove('hidden');
+  }, 'image/jpeg', 0.92);
+};
+$('btnBack').onclick = function(){ $('savePhoto').classList.add('hidden'); };
+$('btnShare').onclick = async function(){
+  try{
+    if (shotBlob && navigator.canShare){
+      var f = new File([shotBlob], 'loews-live.jpg', { type:'image/jpeg' });
+      if (navigator.canShare({ files:[f] })){ await navigator.share({ files:[f], title:'Loews Live' }); return; }
+    }
+    if (shotBlob){ var a = document.createElement('a'); a.href = URL.createObjectURL(shotBlob); a.download = 'loews-live.jpg'; a.click(); }
+  }catch(e){}
+};
+
+/* ---- Scenes + crew mode ---- */
+var SCENES = {
+  scene:  { tag:'ON PROPERTY', tape:false },
+  pool:   { tag:'POOL DECK', tape:false },
+  lobby:  { tag:'THE LOBBY', tape:false },
+  dining: { tag:'DINING', tape:false },
+  event:  { tag:'SPECIAL EVENT', tape:false }
+};
+var scene = 'scene', crewMode = false, selfMode = false;
+function slugForScene(){
+  return { scene:'RESORT UPDATE', pool:'POOL CAM', lobby:'FROM THE LOBBY', dining:'TASTE OF LOEWS', event:'HAPPENING NOW' }[scene] || 'RESORT UPDATE';
+}
+function syncName(){
+  var n = $('l3name'); if (n) n.textContent = (crewMode || selfMode) ? reporterName().toUpperCase() : L().breaking;
+  var s = $('l3slug'); if (s) s.textContent = slugForScene();
+}
+function setScene(k){
+  scene = k;
+  var s = SCENES[k];
+  $('scenetag').textContent = s.tag;
+  syncName();
+  var tape = $('tape');
+  if (s.tape){
+    tape.textContent = 'WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS — ';
+    tape.classList.remove('hidden');
+  } else tape.classList.add('hidden');
+  var row = $('sceneRow');
+  if (row) Array.prototype.forEach.call(row.children, function(b){ b.classList.toggle('on', b.dataset.k === k); });
+}
+(function buildScenes(){
+  var row = $('sceneRow'); if (!row) return;
+  var names = { scene:'On Property', pool:'Pool Deck', lobby:'Lobby', dining:'Dining', event:'Special Event' };
+  Object.keys(SCENES).forEach(function(k){
+    var b = document.createElement('button');
+    b.className = 'scenebtn' + (k === scene ? ' on' : '');
+    b.dataset.k = k; b.textContent = names[k];
+    b.onclick = function(){ setScene(k); };
+    row.appendChild(b);
+  });
+})();
+function fitMicText(){
+  var cube = $('micCube'), t = $('micCubeTxt');
+  if (!cube || !t) return;
+  var w = cube.clientWidth; if (!w) return;
+  var size = Math.max(8, Math.round(w * 0.17));
+  t.style.fontSize = size + 'px';
+  var guard = 30;
+  while (t.scrollWidth > w - 8 && size > 7 && guard-- > 0){ size -= 1; t.style.fontSize = size + 'px'; }
+}
+function micFlagSync(){
+  $('micflag').classList.toggle('hidden', !(crewMode || selfMode));
+  $('micCubeTxt').textContent = chanShort();
+  if (crewMode || selfMode) requestAnimationFrame(fitMicText);
+}
+window.addEventListener('resize', function(){ if (crewMode || selfMode) fitMicText(); });
+var liveOn = false;
+function uiModeSync(){ document.body.classList.toggle('program', liveOn && !crewMode); }
+async function setSelfMode(on){
+  selfMode = !!on;
+  document.body.classList.toggle('selfview', selfMode);
+  var b = $('btnSelf'); if (b) b.classList.toggle('on', selfMode);
+  micFlagSync();
+  updateReporterStrap();
+  if (selfMode && facing !== 'user'){ facing = 'user'; await startCamera(); }
+  uiModeSync();
+}
+$('btnSelf').onclick = function(){ setSelfMode(!selfMode); pokeControls(); };
+$('btnCrew').onclick = async function(){
+  crewMode = !crewMode;
+  uiModeSync();
+  $('btnCrew').classList.toggle('on', crewMode);
+  micFlagSync();
+  updateReporterStrap();
+  if (crewMode && facing !== 'user'){ facing = 'user'; await startCamera(); }
+};
+
+/* ---- Facebook Live handoff: copy a ready title, toast, open Live Producer ---- */
+function showToast(msg){
+  var t = $('toast'); if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._tm);
+  showToast._tm = setTimeout(function(){ t.classList.remove('show'); }, 2600);
+}
+$('btnFb').onclick = function(){
+  var locTxt = ($('loc').textContent || '').replace(/^\s*LIVE FROM\s+/i, '').trim();
+  var txt = $('headline').textContent + String.fromCharCode(10) + 'Live on ' + chanShort() + ' — reporting from ' + (locTxt || L().loc);
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt);
+    else {
+      var ta = document.createElement('textarea');
+      ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch(e){}
+      ta.remove();
+    }
+  } catch(e){}
+  showToast('Title copied — opening Facebook Live Producer');
+  window.open('https://www.facebook.com/live/producer', '_blank');
+  pokeControls();
+};
+setScene('scene');
+
+/* ---- Video recording (overlay burned in, mic audio) ---- */
+function drawRecFrame(){
+  var v = $('vid'); if (!v.videoWidth){ rec.raf = requestAnimationFrame(drawRecFrame); return; }
+  var ctx = rec.ctx, W = rec.cv.width, H = rec.cv.height;
+  drawVideoCover(ctx, v, W, H);
+  var u = Math.max(W, H) / 100, d = L();
+  ctx.textBaseline = 'middle';
+  /* LIVE bug */
+  ctx.fillStyle = '#c8102e'; rr(ctx, 1.2 * u, 1.2 * u, 8.8 * u, 3.6 * u, 0.2 * u); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(2.9 * u, 3 * u, 0.62 * u, 0, 7); ctx.fill();
+  ctx.font = '700 ' + (1.9 * u) + 'px Arial'; ctx.fillText(d.live, 4.3 * u, 3.05 * u);
+  /* clock + TC: crew viewfinder gear only */
+  if (crewMode){
+  ctx.font = '600 ' + (1.7 * u) + 'px Arial';
+  var ct = $('clockbug').textContent, ctw = ctx.measureText(ct).width;
+  ctx.fillStyle = 'rgba(0,0,0,.55)'; rr(ctx, W - ctw - 3.4 * u, 1.2 * u, ctw + 2.2 * u, 3.4 * u, 0.2 * u); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.fillText(ct, W - ctw - 2.3 * u, 2.95 * u);
+  ctx.fillStyle = '#ff3b30'; ctx.font = '700 ' + (1.6 * u) + 'px Arial';
+  var rs = Math.floor((Date.now() - rec.startTs) / 1000);
+  ctx.fillText('● REC ' + Math.floor(rs / 60) + ':' + ('0' + (rs % 60)).slice(-2), 1.4 * u, 7 * u);
+  ctx.fillStyle = '#ffffff'; ctx.font = '400 ' + (1.6 * u) + 'px Menlo, Consolas, monospace';
+  ctx.fillText($('tc') ? $('tc').textContent : '', 11.5 * u, 7 * u);
+  }
+  if (scene === 'crime'){ ctx.fillStyle = '#f2c018'; ctx.fillRect(0, 11.5 * u, W, 4 * u); ctx.fillStyle = '#141414'; ctx.font = '700 ' + (2.4 * u) + 'px Arial'; ctx.fillText('WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS', 2 * u, 13.6 * u); }
+  /* mic flag in crew / self-report mode */
+  if (crewMode || selfMode) drawMicFlag(ctx, W, H, u, (H - 21.2 * u) - 4.4 * u);
+  /* scene tag */
+  ctx.font = '600 ' + (1.6 * u) + 'px Arial';
+  var tag = $('scenetag').textContent, tagw = ctx.measureText(tag).width + 1.8 * u;
+  var ly = H - 21.2 * u;
+  ctx.fillStyle = '#12235c'; rr(ctx, 1 * u, ly - 4.4 * u, tagw, 3.4 * u, 0.2 * u); ctx.fill();
+  ctx.fillStyle = '#c8102e'; ctx.fillRect(1 * u, ly - 4.4 * u, 0.5 * u, 3.4 * u);
+  ctx.fillStyle = '#ffffff'; ctx.fillText(tag, 2.1 * u, ly - 2.65 * u);
+  drawLowerThird(ctx, W, H, u);
+  /* ticker (scrolls with wall time) */
+  ctx.fillStyle = '#0a1230'; ctx.fillRect(0, H - 6.4 * u, W, 6.4 * u);
+  ctx.fillStyle = '#c5a253'; ctx.fillRect(0, H - 6.4 * u, W, 0.5 * u);
+  ctx.fillStyle = '#e8ecf4'; ctx.font = '500 ' + (2.3 * u) + 'px Arial';
+  var ttxt = d.ticker, tw = ctx.measureText(ttxt).width, off = (Date.now() / 14) % (tw + 8 * u);
+  ctx.save(); ctx.beginPath(); ctx.rect(13 * u, H - 6.4 * u, W - 13 * u, 6.4 * u); ctx.clip();
+  ctx.fillText(ttxt, 14.5 * u - off, H - 3.1 * u);
+  ctx.fillText(ttxt, 14.5 * u - off + tw + 8 * u, H - 3.1 * u);
+  ctx.restore();
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, H - 6.4 * u, 13 * u, 6.4 * u);
+  ctx.fillStyle = '#0a1230'; ctx.font = '800 ' + (2.2 * u) + 'px Arial';
+  ctx.fillText(d.tickerLbl, 1.4 * u, H - 3.1 * u);
+  rec.raf = requestAnimationFrame(drawRecFrame);
+}
+function startRec(){
+  var v = $('vid');
+  if (!v.videoWidth){ showErr('Camera is still warming up — give it a second and tap again.'); return; }
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream){
+    showErr('Video recording is not supported in this browser. On an iPhone, open this page in Safari and it will work.');
+    return;
+  }
+  var swapWH = (rot % 180 !== 0);
+  var W = Math.min(swapWH ? v.videoHeight : v.videoWidth, 1280), H = Math.round(W * (swapWH ? v.videoWidth : v.videoHeight) / (swapWH ? v.videoHeight : v.videoWidth));
+  rec.cv = document.createElement('canvas'); rec.cv.width = W; rec.cv.height = H;
+  rec.ctx = rec.cv.getContext('2d');
+  var cs = rec.cv.captureStream(30);
+  var tracks = cs.getVideoTracks().slice();
+  var hasMic = false;
+  if (stream){ var at = stream.getAudioTracks(); if (at && at.length){ tracks.push(at[0]); hasMic = true; } }
+  var ms = new MediaStream(tracks);
+  var mts = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
+  var mt = null;
+  for (var i = 0; i < mts.length; i++){ try { if (MediaRecorder.isTypeSupported(mts[i])){ mt = mts[i]; break; } } catch(e){} }
+  try { rec.mr = new MediaRecorder(ms, mt ? { mimeType: mt, videoBitsPerSecond: 6000000 } : undefined); }
+  catch(e){ showErr('The recorder would not start in this browser.'); return; }
+  rec.chunks = [];
+  rec.mr.ondataavailable = function(e){ if (e.data && e.data.size) rec.chunks.push(e.data); };
+  rec.mr.onstop = finishRec;
+  rec.startTs = Date.now();
+  rec.mr.start(250);
+  drawRecFrame();
+  $('btnRec').classList.add('recording');
+  $('btnFlip').disabled = true;
+  if (!hasMic) showErr('Recording — but no microphone was allowed, so this clip will be silent. Photos still work.');
+}
+function finishRec(){
+  cancelAnimationFrame(rec.raf);
+  var type = (rec.mr && rec.mr.mimeType) || 'video/webm';
+  var blob = new Blob(rec.chunks, { type: type });
+  var ext = type.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
+  lastMedia = { kind:'video', blob: blob, name:'loews-live.' + ext };
+  $('saveTitle').textContent = 'Your video clip';
+  var sh1 = $('saveHint'); if (sh1) sh1.textContent = 'Tap SAVE TO CAMERA ROLL, then tap Save Video — it lands in your Photos.';
+  $('shotImg').classList.add('hidden');
+  var sv = $('shotVid'); sv.classList.remove('hidden'); sv.src = URL.createObjectURL(blob);
+  $('savePhoto').classList.remove('hidden');
+  $('btnRec').classList.remove('recording'); $('btnRec').textContent = '● RECORD';
+  $('btnFlip').disabled = false;
+  rec.mr = null;
+}
+$('btnRec').onclick = function(){
+  if (rec.mr && rec.mr.state === 'recording'){ rec.mr.stop(); return; }
+  startRec();
+};
+$('btnShare').onclick = async function(){
+  var m = lastMedia || (shotBlob ? { kind:'photo', blob: shotBlob, name:'loews-live.jpg' } : null);
+  if (!m) return;
+  try{
+    if (navigator.canShare){
+      var f = new File([m.blob], m.name, { type: m.blob.type || (m.kind === 'video' ? 'video/mp4' : 'image/jpeg') });
+      if (navigator.canShare({ files:[f] })){ await navigator.share({ files:[f], title:'Loews Live' }); return; }
+    }
+    var a = document.createElement('a'); a.href = URL.createObjectURL(m.blob); a.download = m.name; a.click();
+  }catch(e){}
+};
+
+buildLangRows();
+applyLang();
+setTicker(L().ticker);
+})();
+</script>
+</body>
+</html>
