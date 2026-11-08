@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-1842">
+<html lang="en" data-build="loews-20261108-1855">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -207,6 +207,7 @@
       <button class="cbtn" id="btnDice" title="Sample headlines" style="font-size:12.5px;letter-spacing:1px;">SAMPLE</button>
       <button class="cbtn" id="snap">PHOTO</button>
       <button class="cbtn" id="btnRec">● RECORD</button>
+      <button class="cbtn" id="btnIntro" style="font-size:12.5px;letter-spacing:1px;">INTRO</button>
       <button class="cbtn" id="btnFlip" title="Flip camera" style="font-size:12.5px;letter-spacing:1px;">FLIP</button>
       <button class="cbtn hidden" id="btnZoom">1&times;</button>
       <button class="cbtn" id="btnRot" style="font-size:12.5px;letter-spacing:1px;">ROTATE</button>
@@ -375,11 +376,31 @@ function tick(ts){
 requestAnimationFrame(tick);
 
 /* ---- dramatic sting (WebAudio) + voice ---- */
+var introStart = 0, mixDest = null, micSrc = null, stingBus = null;
+function audioRoute(){
+  if (!AC) return false;
+  try { if (AC.state === 'suspended') AC.resume(); } catch(e) {}
+  if (!mixDest){
+    try {
+      mixDest = AC.createMediaStreamDestination();
+      stingBus = AC.createGain(); stingBus.gain.value = 0.9;
+      stingBus.connect(AC.destination); stingBus.connect(mixDest);
+      wireMic();
+    } catch(e) { return false; }
+  }
+  return true;
+}
+function wireMic(){
+  if (!AC || !mixDest || !stream) return;
+  try { if (micSrc) micSrc.disconnect(); } catch(e) {}
+  try { var at = stream.getAudioTracks()[0]; if (at) { micSrc = AC.createMediaStreamSource(new MediaStream([at])); micSrc.connect(mixDest); } } catch(e) {}
+}
 var AC = null;
 function sting(){
   try{
     if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
     if (AC.state === 'suspended') AC.resume();
+    audioRoute();
     var t = AC.currentTime;
     function hit(when, freq, dur, gain){
       var o = AC.createOscillator(), g = AC.createGain();
@@ -388,7 +409,7 @@ function sting(){
       o2.type = 'square'; o2.frequency.value = freq / 2;
       g.gain.setValueAtTime(0, when); g.gain.linearRampToValueAtTime(gain, when + 0.02); g.gain.exponentialRampToValueAtTime(0.001, when + dur);
       g2.gain.setValueAtTime(0, when); g2.gain.linearRampToValueAtTime(gain * 0.7, when + 0.02); g2.gain.exponentialRampToValueAtTime(0.001, when + dur);
-      o.connect(g).connect(AC.destination); o2.connect(g2).connect(AC.destination);
+      o.connect(g).connect(stingBus || AC.destination); o2.connect(g2).connect(stingBus || AC.destination);
       o.start(when); o.stop(when + dur + 0.05); o2.start(when); o2.stop(when + dur + 0.05);
     }
     hit(t + 0.05, 98, 0.5, 0.13);
@@ -401,7 +422,7 @@ function sting(){
     var f = AC.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2;
     f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(2800, t + 0.6);
     var ng = AC.createGain(); ng.gain.setValueAtTime(0.08, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
-    src.connect(f).connect(ng).connect(AC.destination); src.start(t);
+    src.connect(f).connect(ng).connect(stingBus || AC.destination); src.start(t);
   }catch(e){}
 }
 function speakBreaking(){
@@ -409,13 +430,14 @@ function speakBreaking(){
     var d = L();
     var u = new SpeechSynthesisUtterance(d.speakTxt);
     u.lang = d.speak; u.rate = 0.92; u.pitch = 0.7; u.volume = 1;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
+    try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch(e) {}
+    setTimeout(function(){ try { speechSynthesis.speak(u); } catch(e) {} }, 80);
   }catch(e){}
 }
 
 /* ---- intro sequence ---- */
 function playIntro(done){
+  introStart = Date.now();
   var d = L();
   var intro = $('intro');
   $('introBreaking').textContent = d.breaking;
@@ -450,6 +472,7 @@ async function startCamera(){
     catch(e2) { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false }); }
     $('vid').srcObject = stream;
     try { applyZoom(); } catch(e) {}
+    if (AC) wireMic();
     return true;
   }catch(e){
     showErr('Camera blocked. Please allow camera access for this site in your browser settings, then tap GO LIVE again.');
@@ -545,6 +568,16 @@ function applyZoom(){
 $('btnZoom').onclick = function(){ zoomIdx = (zoomIdx + 1) % zoomSteps.length; applyZoom(); pokeControls(); };
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 document.addEventListener('gesturechange', function(e){ e.preventDefault(); });
+/* Stall watchdog: if the camera feed stops advancing, restart it by itself */
+var lastVT = -1, stallN = 0, lastRestart = 0;
+setInterval(function(){
+  try {
+    if (!liveOn || document.hidden || !stream) { stallN = 0; return; }
+    var v = $('vid'); if (!v || v.readyState < 2) return;
+    if (v.currentTime === lastVT) stallN++; else { stallN = 0; lastVT = v.currentTime; }
+    if (stallN >= 3 && Date.now() - lastRestart > 9000) { lastRestart = Date.now(); stallN = 0; startCamera(); toast('Camera hiccup \u2014 feed restarted'); }
+  } catch(e) {}
+}, 1000);
 function drawVideoCover(ctx, v, W, H){
   var vw = v.videoWidth, vh = v.videoHeight; if (!vw) return;
   ctx.save();
@@ -597,6 +630,7 @@ $('btnReplay').onclick = function(){
   $('overlay').classList.add('hidden');
   playIntro(function(){ $('overlay').classList.remove('hidden'); pokeControls(); });
 };
+$('btnIntro').onclick = function(){ playIntro(); pokeControls(); };
 
 /* ---- controls auto-hide: program feed shows no controls; tap restores ---- */
 var ctlTimer = 0;
@@ -674,8 +708,7 @@ function drawLowerThird(ctx, W, H, u){
   ctx.fillStyle = '#ffffff'; ctx.fillRect(x0, hy, lw, hh);
   ctx.fillStyle = '#c5a253'; ctx.fillRect(x0, hy, lw, 0.4 * u);
   ctx.fillStyle = '#14213d'; ctx.font = '700 ' + (2.15 * u) + 'px Arial';
-  var hl = $('headline').textContent.toUpperCase();
-  while (ctx.measureText(hl).width > lw - 2.4 * u && hl.length > 4) hl = hl.slice(0, -1);
+  var hl = trunc(ctx, $('headline').textContent.toUpperCase(), lw - 2.4 * u);
   ctx.fillText(hl, x0 + 1.2 * u, hy + hh / 2 + 0.1 * u);
 }
 $('snap').onclick = function(){
@@ -843,6 +876,43 @@ $('btnFb').onclick = function(){
 setScene('scene');
 
 /* ---- Video recording (overlay burned in, mic audio) ---- */
+
+/* ---- Intro card drawn INTO recordings while the intro plays ---- */
+var truncMemo = {};
+function trunc(ctx, txt, maxW){
+  var k = ctx.font + '|' + Math.round(maxW) + '|' + txt;
+  if (truncMemo[k]) return truncMemo[k];
+  var s = txt;
+  while (s.length > 4 && ctx.measureText(s).width > maxW) s = s.slice(0, -1);
+  if (Object.keys(truncMemo).length > 80) truncMemo = {};
+  truncMemo[k] = s; return s;
+}
+function drawIntroCard(ctx, W, H, p){
+  var u = Math.max(W, H) / 100;
+  ctx.save();
+  var bgA = Math.min(1, p / 0.08); if (p > 0.9) bgA = Math.max(0, (1 - p) / 0.1);
+  var g = ctx.createRadialGradient(W / 2, H * 0.42, 10, W / 2, H * 0.42, W * 0.75);
+  g.addColorStop(0, '#1d3a68'); g.addColorStop(1, '#0d1f3c');
+  ctx.globalAlpha = bgA; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.globalAlpha = bgA * Math.min(1, p / 0.15);
+  ctx.fillStyle = '#c5a253'; ctx.font = '800 ' + (3.2 * u) + 'px Arial';
+  ctx.fillText($('introChan').textContent, W / 2, H * 0.30);
+  var sc = 1.55 - 0.55 * Math.min(1, p / 0.28);
+  ctx.save(); ctx.translate(W / 2, H * 0.47); ctx.scale(sc, sc);
+  ctx.globalAlpha = bgA * Math.min(1, p / 0.12);
+  ctx.fillStyle = '#ffffff'; ctx.font = 'italic 900 ' + (9.5 * u) + 'px Arial';
+  var bt = $('introBreaking').textContent, bw = ctx.measureText(bt).width;
+  if (bw > W * 0.94) { ctx.font = 'italic 900 ' + (9.5 * u * (W * 0.94) / bw) + 'px Arial'; }
+  ctx.fillText(bt, 0, 0);
+  ctx.restore();
+  var rw = Math.max(0, Math.min(1, (p - 0.3) / 0.25)) * W * 0.52;
+  ctx.globalAlpha = bgA; ctx.fillStyle = '#c5a253'; ctx.fillRect(W / 2 - rw / 2, H * 0.585, rw, 0.9 * u);
+  ctx.globalAlpha = bgA * Math.max(0, Math.min(1, (p - 0.5) / 0.25));
+  ctx.fillStyle = '#dbe7f7'; ctx.font = '800 ' + (3.3 * u) + 'px Arial';
+  ctx.fillText($('introSlogan').textContent, W / 2, H * 0.645);
+  ctx.restore();
+}
 function drawRecFrame(){
   var v = $('vid'); if (!v.videoWidth){ rec.raf = requestAnimationFrame(drawRecFrame); return; }
   var ctx = rec.ctx, W = rec.cv.width, H = rec.cv.height;
@@ -888,6 +958,7 @@ function drawRecFrame(){
   ctx.fillStyle = '#ffffff'; ctx.fillRect(0, H - 6.4 * u, 13 * u, 6.4 * u);
   ctx.fillStyle = '#0a1230'; ctx.font = '800 ' + (2.2 * u) + 'px Arial';
   ctx.fillText(d.tickerLbl, 1.4 * u, H - 3.1 * u);
+  if (introStart && Date.now() - introStart < 2600) drawIntroCard(ctx, W, H, (Date.now() - introStart) / 2600);
   rec.raf = requestAnimationFrame(drawRecFrame);
 }
 function startRec(){
@@ -904,7 +975,10 @@ function startRec(){
   var cs = rec.cv.captureStream(30);
   var tracks = cs.getVideoTracks().slice();
   var hasMic = false;
-  if (stream){ var at = stream.getAudioTracks(); if (at && at.length){ tracks.push(at[0]); hasMic = true; } }
+  if (AC) audioRoute();
+  var mtrack = null; try { mtrack = mixDest && mixDest.stream.getAudioTracks()[0]; } catch(e) {}
+  if (mtrack){ tracks.push(mtrack); hasMic = true; }
+  else if (stream){ var at = stream.getAudioTracks(); if (at && at.length){ tracks.push(at[0]); hasMic = true; } }
   var ms = new MediaStream(tracks);
   var mts = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
   var mt = null;
