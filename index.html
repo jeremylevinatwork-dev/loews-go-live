@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-1832">
+<html lang="en" data-build="loews-20261108-1842">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -708,7 +708,7 @@ $('snap').onclick = function(){
   ctx.fillText(tct, 7.4 * u, 7 * u);
   }
   if (scene === 'crime'){ ctx.fillStyle = '#f2c018'; ctx.fillRect(0, 11.5 * u, W, 4 * u); ctx.fillStyle = '#141414'; ctx.font = '700 ' + (2.4 * u) + 'px Arial'; ctx.fillText('WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS', 2 * u, 13.6 * u); }
-  if (reporterOn()) drawMicFlag(ctx, W, H, u, (H - 21.2 * u) - 4.4 * u);
+  /* mic cube removed: clean frame */
   drawLowerThird(ctx, W, H, u);
   /* ticker */
   ctx.fillStyle = '#0a1230'; ctx.fillRect(0, H - 6.4 * u, W, 6.4 * u);
@@ -789,7 +789,7 @@ function fitMicText(){
   while (t.scrollWidth > w - 8 && size > 7 && guard-- > 0){ size -= 1; t.style.fontSize = size + 'px'; }
 }
 function micFlagSync(){
-  $('micflag').classList.toggle('hidden', !reporterOn());
+  $('micflag').classList.add('hidden'); /* mic cube removed: clean frame */
   $('micCubeTxt').textContent = chanShort();
   if (reporterOn()) requestAnimationFrame(fitMicText);
 }
@@ -867,7 +867,7 @@ function drawRecFrame(){
   }
   if (scene === 'crime'){ ctx.fillStyle = '#f2c018'; ctx.fillRect(0, 11.5 * u, W, 4 * u); ctx.fillStyle = '#141414'; ctx.font = '700 ' + (2.4 * u) + 'px Arial'; ctx.fillText('WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS', 2 * u, 13.6 * u); }
   /* mic flag in crew / self-report mode */
-  if (reporterOn()) drawMicFlag(ctx, W, H, u, (H - 21.2 * u) - 4.4 * u);
+  /* mic cube removed: clean frame */
   /* scene tag */
   ctx.font = '600 ' + (1.6 * u) + 'px Arial';
   var tag = $('scenetag').textContent, tagw = ctx.measureText(tag).width + 1.8 * u;
