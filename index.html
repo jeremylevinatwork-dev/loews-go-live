@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-1820">
+<html lang="en" data-build="loews-20261108-1832">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -8,7 +8,7 @@
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin:0; padding:0; height:100%; background:#0b1020; color:#fff; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; overflow:hidden; }
-  #stage { position:fixed; inset:0; background:#000; }
+  #stage { position:fixed; inset:0; background:#000; touch-action:none; }
   #vid { position:absolute; left:50%; top:50%; width:100vw; height:100dvh; object-fit:cover; background:#111; transform:translate(-50%,-50%); }
   .hidden { display:none !important; }
 
@@ -208,6 +208,7 @@
       <button class="cbtn" id="snap">PHOTO</button>
       <button class="cbtn" id="btnRec">● RECORD</button>
       <button class="cbtn" id="btnFlip" title="Flip camera" style="font-size:12.5px;letter-spacing:1px;">FLIP</button>
+      <button class="cbtn hidden" id="btnZoom">1&times;</button>
       <button class="cbtn" id="btnRot" style="font-size:12.5px;letter-spacing:1px;">ROTATE</button>
       <button class="cbtn" id="btnEdit">EDIT</button>
       <button class="cbtn" id="btnName">NAME</button>
@@ -448,6 +449,7 @@ async function startCamera(){
     try { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:true }); }
     catch(e2) { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false }); }
     $('vid').srcObject = stream;
+    try { applyZoom(); } catch(e) {}
     return true;
   }catch(e){
     showErr('Camera blocked. Please allow camera access for this site in your browser settings, then tap GO LIVE again.');
@@ -525,6 +527,24 @@ function applyRot(){
 }
 $('btnRot').onclick = function(){ rot = (rot + 90) % 360; applyRot(); rotSeen = true; $('btnRot').classList.remove('attn'); pokeControls(); };
 applyRot();
+/* ---- Camera zoom: image zooms, graphics never move ---- */
+var zoomSteps = [1, 1.5, 2, 3, 5], zoomIdx = 0;
+function applyZoom(){
+  var b = $('btnZoom'); if (!b) return;
+  if (!stream){ b.classList.add('hidden'); return; }
+  var tr = stream.getVideoTracks && stream.getVideoTracks()[0];
+  if (!tr || !tr.getCapabilities){ b.classList.add('hidden'); return; }
+  var caps = null; try { caps = tr.getCapabilities(); } catch(e) {}
+  if (!caps || !caps.zoom){ b.classList.add('hidden'); return; }
+  var maxZ = caps.zoom.max || 1, minZ = caps.zoom.min || 1;
+  var z = Math.max(minZ, Math.min(zoomSteps[zoomIdx], maxZ));
+  b.textContent = (z % 1 ? z.toFixed(1) : String(z)) + '\u00D7';
+  b.classList.remove('hidden');
+  try { tr.applyConstraints({ advanced: [{ zoom: z }] }); } catch(e) {}
+}
+$('btnZoom').onclick = function(){ zoomIdx = (zoomIdx + 1) % zoomSteps.length; applyZoom(); pokeControls(); };
+document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
+document.addEventListener('gesturechange', function(e){ e.preventDefault(); });
 function drawVideoCover(ctx, v, W, H){
   var vw = v.videoWidth, vh = v.videoHeight; if (!vw) return;
   ctx.save();
