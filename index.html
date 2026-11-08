@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-1812">
+<html lang="en" data-build="loews-20261108-1820">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -210,6 +210,7 @@
       <button class="cbtn" id="btnFlip" title="Flip camera" style="font-size:12.5px;letter-spacing:1px;">FLIP</button>
       <button class="cbtn" id="btnRot" style="font-size:12.5px;letter-spacing:1px;">ROTATE</button>
       <button class="cbtn" id="btnEdit">EDIT</button>
+      <button class="cbtn" id="btnName">NAME</button>
       <button class="cbtn" id="btnCrew">CREW</button>
       <button class="cbtn" id="btnSelf">SELF REPORT</button>
       <button class="cbtn" id="btnFb">FB LIVE</button>
@@ -226,7 +227,7 @@
     <input type="text" id="fHeadline" maxlength="110">
     <label>Location</label>
     <input type="text" id="fLoc" maxlength="40">
-    <label>Reporter</label>
+    <label>Name on screen</label>
     <input type="text" id="fReporter" maxlength="40">
     <label>Ticker</label>
     <input type="text" id="fTicker" maxlength="220">
@@ -506,6 +507,7 @@ $('goSelf').onclick = async function(){
 $('btnFlip').onclick = async function(){
   facing = (facing === 'environment') ? 'user' : 'environment';
   await startCamera();
+  syncName(); micFlagSync();
 };
 
 /* ---- Manual camera rotation (foldables can report a sideways feed) ---- */
@@ -551,6 +553,10 @@ $('btnEdit').onclick = function(){
   $('panel').classList.remove('hidden');
   pokeControls();
 };
+$('btnName').onclick = function(){
+  $('btnEdit').onclick();
+  var fr = $('fReporter'); try { fr.focus(); fr.select(); } catch(e) {}
+};
 $('btnDone').onclick = function(){
   $('headline').textContent = $('fHeadline').value || $('headline').textContent;
   $('loc').textContent = $('fLoc').value || $('loc').textContent;
@@ -559,6 +565,7 @@ $('btnDone').onclick = function(){
   $('chanbug').textContent = chanShort();
   var bn = $('bugname'); if (bn) bn.textContent = chanShort();
   $('micCubeTxt').textContent = chanShort(); fitMicText();
+  try { localStorage.setItem('golive-name', $('fReporter').value.trim()); } catch(e) {}
   $('panel').classList.add('hidden');
   pokeControls();
 };
@@ -622,7 +629,7 @@ function drawLowerThird(ctx, W, H, u){
   ctx.font = '700 ' + (1.7 * u) + 'px Arial';
   ctx.fillText($('loc').textContent, x0 + tagw + 1.2 * u, ly + 1.65 * u);
   var by = ly + 3.8 * u, bh = 4.6 * u;
-  var name = (crewMode || selfMode) ? reporterName().toUpperCase() : d.breaking;
+  var name = reporterOn() ? reporterName().toUpperCase() : d.breaking;
   ctx.font = '800 ' + (2.3 * u) + 'px Arial';
   var nameW = Math.max(ctx.measureText(name).width + 3 * u, lw * 0.3);
   var slug = slugForScene();
@@ -681,7 +688,7 @@ $('snap').onclick = function(){
   ctx.fillText(tct, 7.4 * u, 7 * u);
   }
   if (scene === 'crime'){ ctx.fillStyle = '#f2c018'; ctx.fillRect(0, 11.5 * u, W, 4 * u); ctx.fillStyle = '#141414'; ctx.font = '700 ' + (2.4 * u) + 'px Arial'; ctx.fillText('WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS', 2 * u, 13.6 * u); }
-  if (crewMode || selfMode) drawMicFlag(ctx, W, H, u, (H - 21.2 * u) - 4.4 * u);
+  if (reporterOn()) drawMicFlag(ctx, W, H, u, (H - 21.2 * u) - 4.4 * u);
   drawLowerThird(ctx, W, H, u);
   /* ticker */
   ctx.fillStyle = '#0a1230'; ctx.fillRect(0, H - 6.4 * u, W, 6.4 * u);
@@ -723,8 +730,9 @@ var scene = 'scene', crewMode = false, selfMode = false;
 function slugForScene(){
   return { scene:'RESORT UPDATE', pool:'POOL CAM', lobby:'FROM THE LOBBY', dining:'TASTE OF LOEWS', event:'HAPPENING NOW' }[scene] || 'RESORT UPDATE';
 }
+function reporterOn(){ return crewMode || selfMode || facing === 'user'; }
 function syncName(){
-  var n = $('l3name'); if (n) n.textContent = (crewMode || selfMode) ? reporterName().toUpperCase() : L().breaking;
+  var n = $('l3name'); if (n) n.textContent = reporterOn() ? reporterName().toUpperCase() : L().breaking;
   var s = $('l3slug'); if (s) s.textContent = slugForScene();
 }
 function setScene(k){
@@ -761,9 +769,9 @@ function fitMicText(){
   while (t.scrollWidth > w - 8 && size > 7 && guard-- > 0){ size -= 1; t.style.fontSize = size + 'px'; }
 }
 function micFlagSync(){
-  $('micflag').classList.toggle('hidden', !(crewMode || selfMode));
+  $('micflag').classList.toggle('hidden', !reporterOn());
   $('micCubeTxt').textContent = chanShort();
-  if (crewMode || selfMode) requestAnimationFrame(fitMicText);
+  if (reporterOn()) requestAnimationFrame(fitMicText);
 }
 window.addEventListener('resize', function(){ if (crewMode || selfMode) fitMicText(); });
 var liveOn = false;
@@ -839,7 +847,7 @@ function drawRecFrame(){
   }
   if (scene === 'crime'){ ctx.fillStyle = '#f2c018'; ctx.fillRect(0, 11.5 * u, W, 4 * u); ctx.fillStyle = '#141414'; ctx.font = '700 ' + (2.4 * u) + 'px Arial'; ctx.fillText('WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS — WELCOME TO LOEWS HOTELS', 2 * u, 13.6 * u); }
   /* mic flag in crew / self-report mode */
-  if (crewMode || selfMode) drawMicFlag(ctx, W, H, u, (H - 21.2 * u) - 4.4 * u);
+  if (reporterOn()) drawMicFlag(ctx, W, H, u, (H - 21.2 * u) - 4.4 * u);
   /* scene tag */
   ctx.font = '600 ' + (1.6 * u) + 'px Arial';
   var tag = $('scenetag').textContent, tagw = ctx.measureText(tag).width + 1.8 * u;
@@ -924,6 +932,7 @@ $('btnShare').onclick = async function(){
   }catch(e){}
 };
 
+try { var savedName = localStorage.getItem('golive-name'); if (savedName) $('fReporter').value = savedName; } catch(e) {}
 buildLangRows();
 applyLang();
 setTicker(L().ticker);
