@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-2038">
+<html lang="en" data-build="loews-20261108-2104">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -431,10 +431,16 @@ function sting(){
     audioRoute();
     var t = AC.currentTime + 0.03;
     var OUT = stingBus || AC.destination;
-    var master = AC.createGain(); master.gain.value = 0.6;
+    var master = AC.createGain(); master.gain.value = 0.55;
     var comp = AC.createDynamicsCompressor();
-    comp.threshold.value = -16; comp.ratio.value = 6; comp.attack.value = 0.004; comp.release.value = 0.18;
+    comp.threshold.value = -14; comp.ratio.value = 8; comp.attack.value = 0.003; comp.release.value = 0.2;
     master.connect(comp); comp.connect(OUT);
+    try {
+      var echo = AC.createDelay(1); echo.delayTime.value = 0.27;
+      var fb = AC.createGain(); fb.gain.value = 0.22;
+      var wet = AC.createGain(); wet.gain.value = 0.13;
+      master.connect(echo); echo.connect(fb); fb.connect(echo); echo.connect(wet); wet.connect(comp);
+    } catch(e) {}
     function adsr(g, when, peak, a, d, sus, r, end){
       g.gain.setValueAtTime(0.0001, when);
       g.gain.exponentialRampToValueAtTime(peak, when + a);
@@ -459,6 +465,18 @@ function sting(){
         var g2 = AC.createGain(); g2.gain.value = 0.18; o2.connect(g2); g2.connect(f); o2.start(when); o2.stop(when + dur + 0.1);
       });
     }
+    function strings(when, freqs, dur, vol){
+      var f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1900;
+      var g = AC.createGain(); adsr(g, when, vol, 0.18, 0.3, vol * 0.7, 0.4, when + dur);
+      f.connect(g); g.connect(master);
+      freqs.forEach(function(fr){
+        [-7, 0, 7].forEach(function(det){
+          var o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.detune.value = det;
+          var og = AC.createGain(); og.gain.value = 0.09;
+          o.connect(og); og.connect(f); o.start(when); o.stop(when + dur + 0.1);
+        });
+      });
+    }
     function boom(when, vol){
       var o = AC.createOscillator(), g = AC.createGain();
       o.type = 'sine';
@@ -468,68 +486,81 @@ function sting(){
       g.gain.exponentialRampToValueAtTime(0.0001, when + 0.9);
       o.connect(g); g.connect(master); o.start(when); o.stop(when + 1);
     }
-    function noiseBuf(dur, curve){
-      var len = Math.floor(AC.sampleRate * dur), buf = AC.createBuffer(1, len, AC.sampleRate), ch = buf.getChannelData(0);
-      for (var i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * curve(i / len);
-      return buf;
+    function noiseBuf(dur){
+      var b = AC.createBuffer(1, Math.max(1, Math.floor(AC.sampleRate * dur)), AC.sampleRate);
+      var ch = b.getChannelData(0);
+      for (var i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+      return b;
     }
-    function crash(when, vol, dur){
-      var src = AC.createBufferSource(); src.buffer = noiseBuf(dur, function(x){ return Math.pow(1 - x, 1.6); });
-      var f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 5500;
-      var g = AC.createGain(); g.gain.value = vol;
-      src.connect(f); f.connect(g); g.connect(master); src.start(when);
+    var NB = noiseBuf(2.5);
+    function noiseHit(when, type, freq, q, vol, dur){
+      var s = AC.createBufferSource(); s.buffer = NB;
+      var f = AC.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+      var g = AC.createGain();
+      g.gain.setValueAtTime(vol, when);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+      s.connect(f); f.connect(g); g.connect(master);
+      s.start(when); s.stop(when + dur + 0.05);
     }
-    function snare(when, vol){
-      var src = AC.createBufferSource(); src.buffer = noiseBuf(0.09, function(x){ return 1 - x; });
-      var f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 0.8;
-      var g = AC.createGain(); g.gain.value = vol;
-      src.connect(f); f.connect(g); g.connect(master); src.start(when);
-    }
+    function crash(when, vol, dur){ noiseHit(when, 'highpass', 5200, 0.7, vol, dur); }
+    function snare(when, vol){ noiseHit(when, 'bandpass', 1900, 0.8, vol, 0.13); }
+    function hat(when, vol){ noiseHit(when, 'highpass', 8200, 0.7, vol, 0.045); }
     function riser(when, dur){
-      var src = AC.createBufferSource(); src.buffer = noiseBuf(dur, function(x){ return x; });
-      var f = AC.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.4;
-      f.frequency.setValueAtTime(300, when); f.frequency.exponentialRampToValueAtTime(3200, when + dur);
-      var g = AC.createGain(); g.gain.value = 0.11;
-      src.connect(f); f.connect(g); g.connect(master); src.start(when);
-    }
-    function pad(when, freqs, dur, vol){
-      var f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1100;
+      var s = AC.createBufferSource(); s.buffer = NB;
+      var f = AC.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.1;
+      f.frequency.setValueAtTime(420, when);
+      f.frequency.exponentialRampToValueAtTime(6400, when + dur);
       var g = AC.createGain();
       g.gain.setValueAtTime(0.0001, when);
-      g.gain.exponentialRampToValueAtTime(vol, when + 0.7);
-      g.gain.setValueAtTime(vol, when + dur - 0.7);
-      g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-      f.connect(g); g.connect(master);
-      freqs.forEach(function(fr){ [-8, 8].forEach(function(det){ var o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.detune.value = det; var og = AC.createGain(); og.gain.value = 0.12; o.connect(og); og.connect(f); o.start(when); o.stop(when + dur + 0.1); }); });
+      g.gain.exponentialRampToValueAtTime(0.22, when + dur);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + dur + 0.08);
+      s.connect(f); f.connect(g); g.connect(master);
+      s.start(when); s.stop(when + dur + 0.1);
     }
-    var Dm = [146.83, 174.61, 220.00, 293.66], F = [174.61, 220.00, 261.63, 349.23], Bb = [116.54, 146.83, 174.61, 233.08];
-    boom(t, 0.5); crash(t, 0.16, 1.4);
-    brass(t + 0.05, Dm, 0.34, 0.19);
-    brass(t + 0.75, Dm, 0.34, 0.20);
-    brass(t + 1.45, F, 0.85, 0.21);
-    pad(t + 1.2, Dm, 2.6, 0.05);
-    snare(t + 2.40, 0.05); snare(t + 2.65, 0.07); snare(t + 2.90, 0.09); snare(t + 3.15, 0.12);
-    riser(t + 2.40, 1.0);
-    brass(t + 2.50, [220.00], 0.30, 0.11);
-    brass(t + 2.95, [261.63], 0.30, 0.12);
-    brass(t + 3.40, Dm, 1.70, 0.23, 4200); boom(t + 3.40, 0.55); crash(t + 3.40, 0.18, 2.2);
-    brass(t + 4.40, Bb, 0.90, 0.16);
-    pad(t + 5.20, [174.61, 220.00, 261.63], 2.60, 0.06);
-    brass(t + 5.20, F, 2.20, 0.11, 1600);
-    brass(t + 6.90, Dm, 1.15, 0.13, 1800); boom(t + 7.30, 0.32);
-  }catch(e){}
-}
-function speakBreaking(){
-  try{
-    var d = L();
-    var u = new SpeechSynthesisUtterance(d.speakTxt);
-    u.lang = d.speak; u.rate = 0.92; u.pitch = 0.7; u.volume = 1;
-    try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch(e) {}
-    setTimeout(function(){ try { speechSynthesis.speak(u); } catch(e) {} }, 80);
-  }catch(e){}
+    var D2 = 73.42, F2 = 87.31, A2 = 110, Bb2 = 116.54, D3 = 146.83, F3 = 174.61, A3 = 220, Bb3 = 233.08,
+        D4 = 293.66, F4 = 349.23, A4 = 440, D5 = 587.33, F5 = 698.46;
+    /* cold open — impact stab */
+    boom(t, 0.9); crash(t, 0.5, 1.3);
+    brass(t, [D3, F3, A3, D4], 0.55, 0.5, 3400);
+    strings(t, [D3, A3], 2.6, 0.16);
+    /* driving ostinato, 8th-note pulse to the station-name reveal */
+    var pat = [D2, D2, D2, D2, F2, F2, D2, D2, A2, A2, Bb2, Bb2];
+    for (var i = 0; i < pat.length; i++){
+      var pt = t + i * 0.227;
+      brass(pt, [pat[i] * 2], 0.16, 0.16, 1600);
+      hat(pt, 0.05);
+    }
+    snare(t + 0.91, 0.22); snare(t + 1.82, 0.22);
+    /* signature motif */
+    brass(t + 0.45, [D4], 0.44, 0.42, 3400);
+    brass(t + 0.91, [F4], 0.44, 0.42, 3400);
+    brass(t + 1.36, [A4], 0.44, 0.44, 3400);
+    brass(t + 1.82, [D5], 0.95, 0.48, 3600);
+    /* build into the title */
+    for (var r = 0; r < 7; r++) snare(t + 2.62 + r * 0.11, 0.06 + r * 0.035);
+    riser(t + 2.6, 0.78);
+    strings(t + 2.6, [D3, F3, A3], 0.85, 0.22);
+    /* 3.4s — the title hit */
+    boom(t + 3.4, 1.0); crash(t + 3.4, 0.55, 1.6);
+    brass(t + 3.4, [D3, F3, A3, D4, F4, A4], 1.0, 0.55, 3800);
+    strings(t + 3.4, [D3, F3, A3, D4], 1.6, 0.2);
+    /* slogan lift, then the answer phrase */
+    brass(t + 4.42, [Bb2 * 2, F3, Bb3, D4], 0.72, 0.46, 3200);
+    brass(t + 5.2, [A4], 0.3, 0.4, 3200);
+    brass(t + 5.5, [F4], 0.3, 0.4, 3200);
+    brass(t + 5.8, [D4], 0.55, 0.42, 3200);
+    /* motif returns, bigger */
+    brass(t + 6.05, [D4], 0.3, 0.44, 3600);
+    brass(t + 6.32, [F4], 0.3, 0.44, 3600);
+    brass(t + 6.59, [A4], 0.3, 0.46, 3600);
+    brass(t + 6.86, [D5], 0.6, 0.5, 3800);
+    strings(t + 6.05, [D4, F5], 1.35, 0.14);
+    /* final stab — echo tail carries it out */
+    boom(t + 7.15, 0.8); crash(t + 7.15, 0.3, 1.2);
+    brass(t + 7.15, [D3, F3, A3, D4], 0.75, 0.5, 3400);
+  } catch(e) {}
 }
 
-/* ---- intro sequence ---- */
 function playIntro(done){
   introStart = Date.now();
   var d = L();
@@ -577,11 +608,12 @@ async function startCamera(){
   }
   try{
     if (stream) stream.getTracks().forEach(function(t){ t.stop(); });
-    try { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:1920 }, height:{ ideal:1080 } }, audio:true }); }
-    catch(e2) { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:1920 }, height:{ ideal:1080 } }, audio:false }); }
+    try { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:3840 }, height:{ ideal:2160 } }, audio:true }); }
+    catch(e2) { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:3840 }, height:{ ideal:2160 } }, audio:false }); }
     $('vid').srcObject = stream;
     try { applyZoom(); } catch(e) {}
     if (AC) wireMic();
+    try { var gtk = stream.getVideoTracks()[0]; var gst2 = gtk && gtk.getSettings ? gtk.getSettings() : null; var grw = (gst2 && gst2.width) || 0; var grl = grw >= 3000 ? '4K' : (grw >= 1900 ? '1080p' : (grw >= 1200 ? '720p' : '')); if (grl) showToast('Camera: ' + grl); } catch(e) {}
     tentSync();
     return true;
   }catch(e){
@@ -987,7 +1019,7 @@ var scene = 'scene', crewMode = false, selfMode = false;
 function slugForScene(){
   return { scene:'RESORT UPDATE', pool:'POOL CAM', lobby:'FROM THE LOBBY', dining:'TASTE OF LOEWS', event:'HAPPENING NOW' }[scene] || 'RESORT UPDATE';
 }
-function reporterOn(){ return crewMode || selfMode || facing === 'user'; }
+function reporterOn(){ return liveOn || crewMode || selfMode || facing === 'user'; }
 function syncName(){
   var n = $('l3name'); if (n) n.textContent = reporterOn() ? reporterName().toUpperCase() : L().breaking;
   var s = $('l3slug'); if (s) s.textContent = slugForScene();
@@ -1032,7 +1064,7 @@ function micFlagSync(){
 }
 window.addEventListener('resize', function(){ if (crewMode || selfMode) fitMicText(); });
 var liveOn = false;
-function uiModeSync(){ document.body.classList.toggle('program', liveOn && !crewMode); }
+function uiModeSync(){ document.body.classList.toggle('program', liveOn && !crewMode); syncName(); }
 async function setSelfMode(on){
   selfMode = !!on;
   document.body.classList.toggle('selfview', selfMode);
@@ -1173,7 +1205,7 @@ function startRec(){
     return;
   }
   var swapWH = (rot % 180 !== 0);
-  var W = Math.min(swapWH ? v.videoHeight : v.videoWidth, 1280), H = Math.round(W * (swapWH ? v.videoWidth : v.videoHeight) / (swapWH ? v.videoHeight : v.videoWidth));
+  var W = Math.min(swapWH ? v.videoHeight : v.videoWidth, 3840), H = Math.round(W * (swapWH ? v.videoWidth : v.videoHeight) / (swapWH ? v.videoHeight : v.videoWidth));
   rec.cv = document.createElement('canvas'); rec.cv.width = W; rec.cv.height = H;
   rec.ctx = rec.cv.getContext('2d');
   var cs = rec.cv.captureStream(30);
@@ -1187,7 +1219,7 @@ function startRec(){
   var mts = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
   var mt = null;
   for (var i = 0; i < mts.length; i++){ try { if (MediaRecorder.isTypeSupported(mts[i])){ mt = mts[i]; break; } } catch(e){} }
-  try { rec.mr = new MediaRecorder(ms, mt ? { mimeType: mt, videoBitsPerSecond: 6000000 } : undefined); }
+  try { rec.mr = new MediaRecorder(ms, mt ? { mimeType: mt, videoBitsPerSecond: (W >= 3000 ? 26000000 : (W >= 1900 ? 14000000 : 8000000)) } : undefined); }
   catch(e){ showErr('The recorder would not start in this browser.'); return; }
   rec.chunks = [];
   rec.mr.ondataavailable = function(e){ if (e.data && e.data.size) rec.chunks.push(e.data); };
