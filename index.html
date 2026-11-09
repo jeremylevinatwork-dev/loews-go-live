@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-2041">
+<html lang="en" data-build="loews-20261109-0652">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -639,6 +639,44 @@ function showErr(msg){
   var e = $('err'); e.textContent = msg; e.classList.remove('hidden');
   setTimeout(function(){ e.classList.add('hidden'); }, 6000);
 }
+var bestDev = {};
+async function bestLens(){
+  var tk0 = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
+  var st0 = tk0 && tk0.getSettings ? tk0.getSettings() : null;
+  var w0 = (st0 && st0.width) || 0;
+  if (w0 >= 3000) return;
+  if (bestDev[facing] === 'none') return;
+  if (!navigator.mediaDevices.enumerateDevices) return;
+  var devs = await navigator.mediaDevices.enumerateDevices();
+  var curId = st0 && st0.deviceId;
+  var want = facing === 'user' ? /front/i : /back|rear|environment/i;
+  var cands = devs.filter(function(d){ return d.kind === 'videoinput' && d.deviceId && d.deviceId !== curId && want.test(d.label || ''); });
+  if (bestDev[facing]) cands = cands.filter(function(d){ return d.deviceId === bestDev[facing]; });
+  var bestId = null, bestW = w0;
+  for (var i = 0; i < cands.length; i++){
+    try {
+      var ts = await navigator.mediaDevices.getUserMedia({ video:{ deviceId:{ exact: cands[i].deviceId }, width:{ ideal:3840 }, height:{ ideal:2160 } }, audio:false });
+      var tt = ts.getVideoTracks()[0]; var tset = tt && tt.getSettings ? tt.getSettings() : null; var tw = (tset && tset.width) || 0;
+      var sameDir = !tset || !tset.facingMode || tset.facingMode === facing;
+      ts.getTracks().forEach(function(t){ t.stop(); });
+      if (sameDir && tw > bestW){ bestW = tw; bestId = cands[i].deviceId; }
+    } catch(e) {}
+  }
+  if (!bestId){ if (!bestDev[facing]) bestDev[facing] = 'none'; return; }
+  bestDev[facing] = bestId;
+  try {
+    var ns = await navigator.mediaDevices.getUserMedia({ video:{ deviceId:{ exact: bestId }, width:{ ideal:3840 }, height:{ ideal:2160 } }, audio:true });
+    stream.getTracks().forEach(function(t){ t.stop(); });
+    stream = ns;
+  } catch(e) {
+    try {
+      var ns2 = await navigator.mediaDevices.getUserMedia({ video:{ deviceId:{ exact: bestId }, width:{ ideal:3840 }, height:{ ideal:2160 } }, audio:false });
+      stream.getTracks().forEach(function(t){ t.stop(); });
+      try { var mic = await navigator.mediaDevices.getUserMedia({ audio:true }); mic.getAudioTracks().forEach(function(at){ ns2.addTrack(at); }); } catch(e2) {}
+      stream = ns2;
+    } catch(e3) {}
+  }
+}
 async function startCamera(){
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
     showErr('This browser cannot open the camera here. Open this page in Safari or Chrome on your phone and allow camera access.');
@@ -648,6 +686,7 @@ async function startCamera(){
     if (stream) stream.getTracks().forEach(function(t){ t.stop(); });
     try { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:3840 }, height:{ ideal:2160 } }, audio:true }); }
     catch(e2) { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:3840 }, height:{ ideal:2160 } }, audio:false }); }
+    try { await bestLens(); } catch(e) {}
     $('vid').srcObject = stream;
     try { applyZoom(); } catch(e) {}
     if (AC) wireMic();
