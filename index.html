@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-1944">
+<html lang="en" data-build="loews-20261108-1952">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -633,11 +633,16 @@ $('goSelf').onclick = async function(){
   });
 };
 
-$('btnFlip').onclick = async function(){
+async function flipCamera(){
   facing = (facing === 'environment') ? 'user' : 'environment';
   await startCamera();
   syncName(); micFlagSync();
-};
+  showToast(facing === 'user' ? 'Front camera' : 'Rear camera');
+}
+$('btnFlip').onclick = flipCamera;
+var lastVidTap = 0;
+$('vid').addEventListener('dblclick', function(){ if (liveOn) flipCamera(); });
+$('vid').addEventListener('touchend', function(){ var now = Date.now(); if (liveOn && now - lastVidTap < 320) { flipCamera(); lastVidTap = 0; } else lastVidTap = now; });
 
 /* ---- Manual camera rotation (foldables can report a sideways feed) ---- */
 var rot = 0;
@@ -1116,7 +1121,6 @@ function startRec(){
   rec.mr.start(250);
   drawRecFrame();
   $('btnRec').classList.add('recording');
-  $('btnFlip').disabled = true;
   if (!hasMic) showErr('Recording — but no microphone was allowed, so this clip will be silent. Photos still work.');
 }
 function finishRec(){
@@ -1131,7 +1135,6 @@ function finishRec(){
   var sv = $('shotVid'); sv.classList.remove('hidden'); sv.src = URL.createObjectURL(blob);
   $('savePhoto').classList.remove('hidden');
   $('btnRec').classList.remove('recording'); $('btnRec').textContent = '● RECORD';
-  $('btnFlip').disabled = false;
   rec.mr = null;
 }
 $('btnRec').onclick = function(){
