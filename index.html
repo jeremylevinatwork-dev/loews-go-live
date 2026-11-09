@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-2143">
+<html lang="en" data-build="loews-20261108-2155">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -55,6 +55,17 @@
   @keyframes wipe { to { transform:scaleX(1); } }
   #introSlogan { margin-top:2vmin; font-size:2.7vmin; font-weight:700; letter-spacing:6px; color:#dbe4ff; opacity:0; }
   #introSlogan.slam { animation:fadeup .6s 4.4s ease-out forwards; }
+  #introLogo { margin:0 auto 2.2vmin; opacity:0; }
+  #introLogo .logoframe { position:relative; display:inline-block; overflow:hidden; background:#fff; border-radius:10px; padding:10px 16px; box-shadow:0 10px 34px rgba(0,0,0,.45); }
+  #introLogo img { display:block; width:min(168px, 44vw); height:auto; }
+  #introLogo .shine { position:absolute; top:-10%; bottom:-10%; width:42%; left:-60%; background:linear-gradient(105deg, rgba(255,255,255,0), rgba(214,178,94,.65), rgba(255,255,255,0)); transform:skewX(-18deg); }
+  #introLogo.slam { animation:fadeup .7s 1.05s ease-out forwards; }
+  #introLogo.slam .shine { animation:shineGo 1.05s 1.95s ease-in-out forwards; }
+  @keyframes shineGo { to { left:118%; } }
+  .startlogo { position:relative; overflow:hidden; background:#fff; border-radius:12px; padding:12px 18px; margin:0 auto 18px; width:fit-content; box-shadow:0 12px 34px rgba(0,0,0,.4); animation:fadeup .8s .1s ease-out both; }
+  .startlogo img { display:block; width:158px; height:auto; }
+  .startlogo .shine { position:absolute; top:-10%; bottom:-10%; width:42%; left:-60%; background:linear-gradient(105deg, rgba(255,255,255,0), rgba(214,178,94,.55), rgba(255,255,255,0)); transform:skewX(-18deg); animation:shineLoop 6.5s 1.4s ease-in-out infinite; }
+  @keyframes shineLoop { 0% { left:-60%; } 16% { left:118%; } 100% { left:118%; } }
 
   /* ===== Live overlay ===== */
   #livebug { position:absolute; top:calc(10px + env(safe-area-inset-top)); left:12px; z-index:10; display:flex; align-items:center; gap:5px; background:#c8102e; border-radius:2px; padding:3px 8px; font-weight:700; font-size:12px; letter-spacing:1.5px; }
@@ -280,11 +291,12 @@
   <!-- Intro -->
   <div id="intro" class="hidden">
     <div class="bars"><div class="bar b1"></div><div class="bar b2"></div><div class="bar b3"></div><div class="bar b4"></div></div>
-    <div id="introTxt"><div id="introBreaking">GO LIVE</div><div id="introRule"></div><div id="introChan">LOEWS LIVE</div><div id="introSlogan">LIVE FROM UNIVERSAL ORLANDO.</div></div>
+    <div id="introTxt"><div id="introLogo"><span class="logoframe"><img id="introLogoImg" src="loews-logo.png" alt="Loews Hotels & Co"><i class="shine"></i></span></div><div id="introBreaking">GO LIVE</div><div id="introRule"></div><div id="introChan">LOEWS LIVE</div><div id="introSlogan">LIVE FROM UNIVERSAL ORLANDO.</div></div>
   </div>
 
   <!-- Start -->
   <div id="start">
+    <div class="startlogo"><img src="loews-logo.png" alt="Loews Hotels & Co"><i class="shine"></i></div>
     <div style="font-size:15px;font-weight:900;letter-spacing:6px;color:#fff;">LOEWS <span style="color:#c5a253;">LIVE</span></div>
     <h1>LOEWS HOTELS<br><span class="red">GO LIVE</span></h1>
     <p>Broadcast-quality live graphics, Loews style. Tap GO LIVE for the intro, then your camera goes live on property with the full package — lower third, ticker, timecode and recording.</p>
@@ -593,6 +605,7 @@ function playIntro(done){
   $('introChan').textContent = d.chan;
   $('introBreaking').classList.remove('slam');
   $('introChan').classList.remove('slam');
+  $('introLogo').classList.remove('slam');
   $('introRule').classList.remove('slam');
   $('introSlogan').classList.remove('slam');
   intro.classList.remove('hidden');
@@ -604,7 +617,7 @@ function playIntro(done){
   introTimers.forEach(clearTimeout); introTimers = [];
   intro.classList.remove('bye');
   introTimers.push(setTimeout(function(){ $('introBreaking').classList.add('slam'); }, 30));
-  introTimers.push(setTimeout(function(){ $('introRule').classList.add('slam'); $('introChan').classList.add('slam'); $('introSlogan').classList.add('slam'); }, 60));
+  introTimers.push(setTimeout(function(){ $('introRule').classList.add('slam'); $('introChan').classList.add('slam'); $('introSlogan').classList.add('slam'); $('introLogo').classList.add('slam'); }, 60));
   introTimers.push(setTimeout(function(){ speakBreaking(); }, 3400));
   introTimers.push(setTimeout(function(){ intro.classList.add('bye'); }, 7300));
   introTimers.push(setTimeout(function(){ finishIntro(); }, INTRO_MS));
@@ -1159,6 +1172,27 @@ function drawIntroCard(ctx, W, H, p){
   ctx.globalAlpha = bgA * Math.max(0, Math.min(1, (p - 0.13) / 0.08));
   ctx.fillStyle = '#c5a253'; ctx.font = '800 ' + (3.2 * u) + 'px Arial';
   ctx.fillText($('introChan').textContent, W / 2, H * 0.30);
+  var limg = $('introLogoImg');
+  if (limg && limg.complete && limg.naturalWidth){
+    var lap = Math.max(0, Math.min(1, (p - 0.13) / 0.08));
+    if (lap > 0){
+      var lw2 = Math.min(W * 0.30, 15.5 * u), lh2 = lw2 * 0.60;
+      var lx = W / 2 - lw2 / 2, ly2 = H * 0.155 - lh2 / 2 + (1 - lap) * 1.6 * u;
+      ctx.save();
+      ctx.globalAlpha = bgA * lap;
+      ctx.fillStyle = '#ffffff'; rr(ctx, lx - 0.9 * u, ly2 - 0.9 * u, lw2 + 1.8 * u, lh2 + 1.8 * u, 1.2 * u); ctx.fill();
+      ctx.beginPath(); rr(ctx, lx - 0.9 * u, ly2 - 0.9 * u, lw2 + 1.8 * u, lh2 + 1.8 * u, 1.2 * u); ctx.clip();
+      ctx.drawImage(limg, 0, 40, 200, 120, lx, ly2, lw2, lh2);
+      var shp = (p - 0.24) / 0.10;
+      if (shp > 0 && shp < 1){
+        var sx = lx - lw2 * 0.6 + shp * lw2 * 2.2;
+        var gg = ctx.createLinearGradient(sx, 0, sx + lw2 * 0.45, 0);
+        gg.addColorStop(0, 'rgba(255,255,255,0)'); gg.addColorStop(0.5, 'rgba(214,178,94,0.55)'); gg.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gg; ctx.fillRect(lx - u, ly2 - u, lw2 + 2 * u, lh2 + 2 * u);
+      }
+      ctx.restore();
+    }
+  }
   var sc = 1.55 - 0.55 * Math.max(0, Math.min(1, (p - 0.42) / 0.07));
   ctx.save(); ctx.translate(W / 2, H * 0.47); ctx.scale(sc, sc);
   ctx.globalAlpha = bgA * Math.max(0, Math.min(1, (p - 0.40) / 0.04));
