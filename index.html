@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-2126">
+<html lang="en" data-build="loews-20261108-2143">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -197,6 +197,7 @@
 <body>
 <div id="stage">
   <video id="vid" autoplay playsinline muted></video>
+  <audio id="themeAudio" src="theme.mp3" preload="auto" style="display:none"></audio>
 
   <!-- Live overlay -->
   <div id="overlay" class="hidden">
@@ -561,6 +562,29 @@ function sting(){
   } catch(e) {}
 }
 
+var themeSrcNode = null;
+function themePlay(){
+  var a = $('themeAudio');
+  if (!a){ try { sting(); } catch(e) {} return; }
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === 'suspended') AC.resume();
+    audioRoute();
+    if (!themeSrcNode && AC.createMediaElementSource && stingBus){
+      themeSrcNode = AC.createMediaElementSource(a);
+      themeSrcNode.connect(stingBus);
+    }
+  } catch(e) {}
+  try {
+    a.currentTime = 0;
+    var p = a.play();
+    if (p && p.catch) p.catch(function(){ try { sting(); } catch(e) {} });
+  } catch(e) { try { sting(); } catch(e2) {} }
+}
+function themeStop(){
+  var a = $('themeAudio');
+  if (a){ try { a.pause(); a.currentTime = 0; } catch(e) {} }
+}
 function playIntro(done){
   introStart = Date.now();
   var d = L();
@@ -575,7 +599,7 @@ function playIntro(done){
   void intro.offsetWidth; /* restart animations */
   var bars = intro.querySelectorAll('.bar');
   bars.forEach(function(b){ b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; });
-  sting();
+  themePlay();
   introCb = done || null;
   introTimers.forEach(clearTimeout); introTimers = [];
   intro.classList.remove('bye');
@@ -591,6 +615,7 @@ function finishIntro(){
   var intro = $('intro');
   intro.classList.add('hidden'); intro.classList.remove('bye');
   introStart = 0;
+  themeStop();
   var cb = introCb; introCb = null;
   if (cb) cb();
 }
