@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-1952">
+<html lang="en" data-build="loews-20261108-2001">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -642,7 +642,7 @@ async function flipCamera(){
 $('btnFlip').onclick = flipCamera;
 var lastVidTap = 0;
 $('vid').addEventListener('dblclick', function(){ if (liveOn) flipCamera(); });
-$('vid').addEventListener('touchend', function(){ var now = Date.now(); if (liveOn && now - lastVidTap < 320) { flipCamera(); lastVidTap = 0; } else lastVidTap = now; });
+$('vid').addEventListener('touchend', function(e){ if (e.touches && e.touches.length > 0) return; var now = Date.now(); if (liveOn && now - lastVidTap < 320) { flipCamera(); lastVidTap = 0; } else lastVidTap = now; });
 
 /* ---- Manual camera rotation (foldables can report a sideways feed) ---- */
 var rot = 0;
@@ -654,27 +654,70 @@ function applyRot(){
   var swap = (rot % 180 !== 0);
   v.style.width = swap ? '100dvh' : '100vw';
   v.style.height = swap ? '100vw' : '100dvh';
-  v.style.transform = 'translate(-50%,-50%) rotate(' + rot + 'deg)';
+  v.style.transform = 'translate(-50%,-50%) rotate(' + rot + 'deg) scale(' + (digZ || 1) + ')';
   try { localStorage.setItem('news-rot', String(rot)); } catch(e) {}
 }
 $('btnRot').onclick = function(){ rot = (rot + 90) % 360; applyRot(); if (document.body.classList.contains('tent')) tentRot(); rotSeen = true; $('btnRot').classList.remove('attn'); pokeControls(); };
 applyRot();
 /* ---- Camera zoom: image zooms, graphics never move ---- */
-var zoomSteps = [1, 1.5, 2, 3, 5], zoomIdx = 0;
-function applyZoom(){
+var zoomF = 1, digZ = 1;
+function zoomTrack(){
+  if (!stream || !stream.getVideoTracks) return null;
+  var tr = stream.getVideoTracks()[0];
+  if (!tr || !tr.getCapabilities) return null;
+  var c = null; try { c = tr.getCapabilities(); } catch(e) {}
+  return (c && c.zoom) ? { min: (typeof c.zoom.min === 'number' ? c.zoom.min : 1), max: (typeof c.zoom.max === 'number' ? c.zoom.max : 1), tr: tr } : null;
+}
+var lastWideToast = 0;
+function setZoom(z){
+  var nc = zoomTrack();
+  if (nc){
+    zoomF = Math.max(nc.min, Math.min(z, nc.max));
+    digZ = 1;
+    try { nc.tr.applyConstraints({ advanced: [{ zoom: zoomF }] }); } catch(e) {}
+  } else {
+    if (z < 0.99 && Date.now() - lastWideToast > 3000){ lastWideToast = Date.now(); showToast('Widest view this camera has'); }
+    zoomF = Math.max(1, Math.min(z, 5));
+    digZ = zoomF;
+  }
+  applyRot();
+  if (document.body.classList.contains('tent')) tentRot();
+  zoomUi();
+}
+function zoomUi(){
   var b = $('btnZoom'); if (!b) return;
   if (!stream){ b.classList.add('hidden'); return; }
-  var tr = stream.getVideoTracks && stream.getVideoTracks()[0];
-  if (!tr || !tr.getCapabilities){ b.classList.add('hidden'); return; }
-  var caps = null; try { caps = tr.getCapabilities(); } catch(e) {}
-  if (!caps || !caps.zoom){ b.classList.add('hidden'); return; }
-  var maxZ = caps.zoom.max || 1, minZ = caps.zoom.min || 1;
-  var z = Math.max(minZ, Math.min(zoomSteps[zoomIdx], maxZ));
-  b.textContent = (z % 1 ? z.toFixed(1) : String(z)) + '\u00D7';
   b.classList.remove('hidden');
-  try { tr.applyConstraints({ advanced: [{ zoom: z }] }); } catch(e) {}
+  b.textContent = (zoomF % 1 ? zoomF.toFixed(1) : String(zoomF)) + '\u00D7';
 }
-$('btnZoom').onclick = function(){ zoomIdx = (zoomIdx + 1) % zoomSteps.length; applyZoom(); pokeControls(); };
+function applyZoom(){ setZoom(zoomF); }
+$('btnZoom').onclick = function(){
+  var nc = zoomTrack();
+  var steps = (nc && nc.min < 1) ? [nc.min, 1, 2, 3, 5] : [1, 1.5, 2, 3, 5];
+  var hi = nc ? nc.max : 5;
+  steps = steps.filter(function(s){ return s <= hi + 0.001; });
+  if (steps.indexOf(1) < 0) steps.push(1);
+  steps.sort(function(a, b){ return a - b; });
+  var nxt = null;
+  for (var i = 0; i < steps.length; i++){ if (steps[i] > zoomF + 0.01) { nxt = steps[i]; break; } }
+  setZoom(nxt === null ? steps[0] : nxt);
+  pokeControls();
+};
+var pinchD = 0, pinchZ = 1;
+$('stage').addEventListener('touchstart', function(e){
+  if (e.touches && e.touches.length === 2){
+    pinchD = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    pinchZ = zoomF; lastVidTap = 0;
+  }
+}, { passive: true });
+$('stage').addEventListener('touchmove', function(e){
+  if (e.touches && e.touches.length === 2 && pinchD > 0){
+    e.preventDefault();
+    var d2 = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    if (d2 > 0) setZoom(pinchZ * d2 / pinchD);
+  }
+}, { passive: false });
+$('stage').addEventListener('touchend', function(e){ if (!e.touches || e.touches.length < 2) pinchD = 0; });
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 document.addEventListener('gesturechange', function(e){ e.preventDefault(); });
 /* ---- Tent mode: half-fold the Duo — the subject's half shows them,
@@ -685,7 +728,7 @@ function monToast(msg){
 }
 
 /* Tent mode: half-fold the Duo \u2014 their side shows them, your side keeps the controls */
-function tentRot(){ var v2 = $('vid2'); if (!v2) return; v2.style.transform = 'rotate(' + rot + 'deg)' + (facing === 'user' ? ' scaleX(-1)' : ''); }
+function tentRot(){ var v2 = $('vid2'); if (!v2) return; v2.style.transform = 'rotate(' + rot + 'deg)' + (facing === 'user' ? ' scaleX(-1)' : '') + ' scale(' + (digZ || 1) + ')'; }
 function tentSync(){
   var v2 = $('vid2'); if (!v2) return;
   if (document.body.classList.contains('tent')) {
@@ -711,13 +754,13 @@ function drawVideoCover(ctx, v, W, H){
   var vw = v.videoWidth, vh = v.videoHeight; if (!vw) return;
   ctx.save();
   if (rot === 0){
-    var s = Math.max(W / vw, H / vh);
+    var s = Math.max(W / vw, H / vh) * (digZ || 1);
     ctx.drawImage(v, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
   } else {
     ctx.translate(W / 2, H / 2);
     ctx.rotate(rot * Math.PI / 180);
     var bw = (rot % 180 === 0) ? W : H, bh = (rot % 180 === 0) ? H : W;
-    var s2 = Math.max(bw / vw, bh / vh);
+    var s2 = Math.max(bw / vw, bh / vh) * (digZ || 1);
     ctx.drawImage(v, -vw * s2 / 2, -vh * s2 / 2, vw * s2, vh * s2);
   }
   ctx.restore();
