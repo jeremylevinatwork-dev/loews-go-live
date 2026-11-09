@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-2001">
+<html lang="en" data-build="loews-20261108-2013">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -116,6 +116,8 @@
   #panel .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
   #savePhoto { position:absolute; inset:0; z-index:45; background:rgba(3,5,12,.92); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:20px; text-align:center; }
   #savePhoto img { max-width:92%; max-height:62%; border-radius:10px; border:2px solid #33448a; }
+  #btnLight.lit { background:#ffd76a; color:#231a00; border-color:#ffd76a; }
+  #glowframe { position:absolute; inset:0; z-index:6; pointer-events:none; border:16px solid rgba(255,243,214,.96); box-shadow:inset 0 0 140px 40px rgba(255,238,196,.55); background:rgba(255,244,214,.10); }
   #btnRec { background:#c8102e; border-color:rgba(255,255,255,.2); font-size:12.5px; padding:7px 13px; }
   #btnRec.recording { background:#fff; color:#c8102e; animation:pulse 1.2s ease-in-out infinite; }
   #savePhoto video { max-width:92%; max-height:62%; border-radius:10px; border:2px solid #33448a; background:#000; }
@@ -222,6 +224,7 @@
       <button class="cbtn" id="btnTent" style="font-size:12.5px;letter-spacing:1px;">TENT</button>
       <button class="cbtn" id="btnFlip" title="Flip camera" style="font-size:12.5px;letter-spacing:1px;">FLIP</button>
       <button class="cbtn hidden" id="btnZoom">1&times;</button>
+      <button class="cbtn" id="btnLight" style="font-size:12.5px;letter-spacing:1px;">LIGHT</button>
       <button class="cbtn" id="btnRot" style="font-size:12.5px;letter-spacing:1px;">ROTATE</button>
       <button class="cbtn" id="btnEdit">EDIT</button>
       <button class="cbtn" id="btnName">NAME</button>
@@ -232,6 +235,7 @@
     </div>
   </div>
 
+  <div id="glowframe" class="hidden"></div>
   <div id="tentpane">
     <video id="vid2" autoplay playsinline muted></video>
     <div id="tentlive">&#9679; LIVE</div>
@@ -638,6 +642,7 @@ async function flipCamera(){
   await startCamera();
   syncName(); micFlagSync();
   showToast(facing === 'user' ? 'Front camera' : 'Rear camera');
+  applyLight();
 }
 $('btnFlip').onclick = flipCamera;
 var lastVidTap = 0;
@@ -718,6 +723,29 @@ $('stage').addEventListener('touchmove', function(e){
   }
 }, { passive: false });
 $('stage').addEventListener('touchend', function(e){ if (!e.touches || e.touches.length < 2) pinchD = 0; });
+
+/* ---- Light: torch when the camera offers it, else screen glow ---- */
+var lightOn = false;
+function torchTrack(){
+  if (!stream || !stream.getVideoTracks) return null;
+  var tr = stream.getVideoTracks()[0];
+  if (!tr || !tr.getCapabilities) return null;
+  var c = null; try { c = tr.getCapabilities(); } catch(e) {}
+  return (c && c.torch) ? tr : null;
+}
+function applyLight(){
+  var tt = torchTrack();
+  var useTorch = !!(tt && facing === 'environment');
+  if (tt){ try { tt.applyConstraints({ advanced: [{ torch: !!(lightOn && useTorch) }] }); } catch(e) {} }
+  $('glowframe').classList.toggle('hidden', !(lightOn && !useTorch));
+  $('btnLight').classList.toggle('lit', lightOn);
+}
+$('btnLight').onclick = function(){
+  lightOn = !lightOn;
+  applyLight();
+  pokeControls();
+  if (lightOn) showToast(facing === 'user' ? 'Self light on' : (torchTrack() ? 'Flashlight on' : 'Screen light on'));
+};
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 document.addEventListener('gesturechange', function(e){ e.preventDefault(); });
 /* ---- Tent mode: half-fold the Duo — the subject's half shows them,
