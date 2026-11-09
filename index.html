@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-2013">
+<html lang="en" data-build="loews-20261108-2026">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -376,8 +376,10 @@ function setLang(k){
 setInterval(function(){
   var d = new Date();
   function p(n){ return (n < 10 ? '0' : '') + n; }
-  $('clockbug').textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
-  var bc = $('bugclock'); if (bc) bc.textContent = p(d.getHours()) + ':' + p(d.getMinutes());
+  var h12 = d.getHours() % 12; if (h12 === 0) h12 = 12;
+  var ap = d.getHours() < 12 ? 'AM' : 'PM';
+  $('clockbug').textContent = h12 + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) + ' ' + ap;
+  var bc = $('bugclock'); if (bc) bc.textContent = h12 + ':' + p(d.getMinutes()) + ' ' + ap;
   var fr = Math.floor((Date.now() % 1000) / 40);
   var tcEl = $('tc'); if (tcEl) tcEl.textContent = 'TC ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) + ':' + p(fr);
   if (rec.mr && rec.mr.state === 'recording'){ var rs = Math.floor((Date.now() - rec.startTs) / 1000); $('btnRec').textContent = '\u23F9 STOP ' + Math.floor(rs / 60) + ':' + p(rs % 60); }
@@ -902,7 +904,7 @@ function drawLowerThird(ctx, W, H, u){
   ctx.fillStyle = '#10254a'; ctx.font = '800 ' + (1.6 * u) + 'px Arial'; ctx.textAlign = 'center';
   ctx.fillText(chanShort(), x0 + nameW + slugW + bugW / 2, by + bh * 0.32);
   ctx.fillStyle = '#3d3220'; ctx.font = '600 ' + (1.35 * u) + 'px Arial';
-  ctx.fillText($('clockbug').textContent.slice(0, 5), x0 + nameW + slugW + bugW / 2, by + bh * 0.72);
+  ctx.fillText($('bugclock') ? $('bugclock').textContent : '', x0 + nameW + slugW + bugW / 2, by + bh * 0.72);
   ctx.textAlign = 'left';
   var hy = by + bh + 0.45 * u, hh = 5.4 * u;
   ctx.fillStyle = '#ffffff'; ctx.fillRect(x0, hy, lw, hh);
