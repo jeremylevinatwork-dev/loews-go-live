@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-build="loews-20261108-2026">
+<html lang="en" data-build="loews-20261108-2038">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -577,8 +577,8 @@ async function startCamera(){
   }
   try{
     if (stream) stream.getTracks().forEach(function(t){ t.stop(); });
-    try { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:true }); }
-    catch(e2) { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false }); }
+    try { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:1920 }, height:{ ideal:1080 } }, audio:true }); }
+    catch(e2) { stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facing, width:{ ideal:1920 }, height:{ ideal:1080 } }, audio:false }); }
     $('vid').srcObject = stream;
     try { applyZoom(); } catch(e) {}
     if (AC) wireMic();
@@ -629,6 +629,7 @@ try {
 refreshShape();
 $('goSelf').onclick = async function(){
   facing = 'user';
+  zoomF = 1; digZ = 1;
   var ok = await startCamera();
   if (!ok) return;
   $('start').classList.add('hidden');
@@ -641,6 +642,7 @@ $('goSelf').onclick = async function(){
 
 async function flipCamera(){
   facing = (facing === 'environment') ? 'user' : 'environment';
+  zoomF = 1; digZ = 1;
   await startCamera();
   syncName(); micFlagSync();
   showToast(facing === 'user' ? 'Front camera' : 'Rear camera');
